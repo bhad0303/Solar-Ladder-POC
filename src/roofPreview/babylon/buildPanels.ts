@@ -35,12 +35,15 @@ export type PanelMountOpts = {
 const SNAP = 0.25
 const FRAME = 0.035
 const FACE_H = 0.04
-/** Flat canopy: equal posts + horizontal rack; module sits clear above */
-const POST_TOP_Y = 0.78
-const BEAM_H = 0.05
-const PILLAR_D = 0.05
-/** Extra air under lowest module edge above rack top */
-const MODULE_CLEAR = 0.12
+/** Flat canopy: low-side post height (m above roof deck) */
+const POST_LOW_H = 0.52
+const BEAM_H = 0.045
+const BEAM_T = 0.04
+const PILLAR_D = 0.055
+/** Inset posts from panel outer edge so legs sit under the frame */
+const POST_INSET = 0.1
+/** Tiny gap so rails/clamps read as attached, not intersecting */
+const CLAMP_GAP = 0.015
 
 /**
  * Flat: modules on 4 pillars. Gable: flush on roof slope (no pillars).
@@ -97,61 +100,113 @@ export function buildPanels(
       moduleLift = 0.14
       hitY = moduleLift + 0.05
     } else {
-      // —— Flat canopy: equal posts → horizontal rack → tilted module above (no pierce) ——
+      // —— Flat canopy: 4 corner posts (unequal height for tilt) + perimeter rails
+      //    + clamps under the module so pillars and panel read as one assembly ——
       const tiltRad = (panel.tiltDeg * Math.PI) / 180
-      const sin = Math.sin(tiltRad)
-      const hw = panel.widthM * 0.4
-      const hd = panel.heightM * 0.4
-      const pillarH = Math.max(0.2, POST_TOP_Y - BEAM_H)
-      const rackTop = pillarH + BEAM_H
-      // Pivot high enough that lowest module edge stays above rack
-      const edgeDrop = (panel.heightM / 2) * sin
-      const tiltY = rackTop + MODULE_CLEAR + edgeDrop
-      tilt.position.y = tiltY
-      tilt.rotation.x = -tiltRad
-      moduleLift = FACE_H / 2 + 0.02
-      hitY = tiltY
+      const sinT = Math.sin(tiltRad)
+      const halfW = Math.max(0.15, panel.widthM / 2 - POST_INSET)
+      const halfD = Math.max(0.15, panel.heightM / 2 - POST_INSET)
+      // With rotX = -tilt, +Z edge rises → back posts taller
+      const rise = halfD * 2 * sinT
+      const postLow = POST_LOW_H
+      const postHigh = POST_LOW_H + rise
 
-      for (const [lx, lz] of [
-        [-hw, -hd],
-        [hw, -hd],
-        [-hw, hd],
-        [hw, hd],
-      ] as const) {
+      const corners: Array<{ lx: number; lz: number; h: number }> = [
+        { lx: -halfW, lz: -halfD, h: postLow },
+        { lx: halfW, lz: -halfD, h: postLow },
+        { lx: -halfW, lz: halfD, h: postHigh },
+        { lx: halfW, lz: halfD, h: postHigh },
+      ]
+
+      for (const c of corners) {
+        const h = Math.max(0.18, c.h)
         const pillar = MeshBuilder.CreateCylinder(
-          `pillar-${panel.id}-${lx}-${lz}`,
-          { height: pillarH, diameter: PILLAR_D, tessellation: 8 },
+          `pillar-${panel.id}-${c.lx}-${c.lz}`,
+          { height: h, diameter: PILLAR_D, tessellation: 10 },
           scene,
         )
-        pillar.position = new Vector3(lx, pillarH / 2, lz)
+        pillar.position = new Vector3(c.lx, h / 2, c.lz)
         pillar.parent = root
         pillar.material = mats.panelPillar
         pillar.isPickable = false
         shadowGen?.addShadowCaster(pillar)
+
+        // Cap plate + clamp on post top (touches panel underside)
+        const cap = MeshBuilder.CreateBox(
+          `pillarCap-${panel.id}-${c.lx}-${c.lz}`,
+          { width: PILLAR_D * 1.7, height: 0.028, depth: PILLAR_D * 1.7 },
+          scene,
+        )
+        cap.position = new Vector3(c.lx, h + 0.014, c.lz)
+        cap.parent = root
+        cap.material = mats.panelFrame
+        cap.isPickable = false
+
+        const clamp = MeshBuilder.CreateBox(
+          `clamp-${panel.id}-${c.lx}-${c.lz}`,
+          { width: 0.08, height: 0.04, depth: 0.08 },
+          scene,
+        )
+        clamp.position = new Vector3(c.lx, h + 0.048, c.lz)
+        clamp.parent = root
+        clamp.material = mats.panelFrame
+        clamp.isPickable = false
       }
 
-      const beamY = pillarH + BEAM_H / 2
-      const beamX = MeshBuilder.CreateBox(
-        `beamX-${panel.id}`,
-        { width: hw * 2 + 0.1, height: BEAM_H, depth: 0.042 },
-        scene,
-      )
-      beamX.position = new Vector3(0, beamY, 0)
-      beamX.parent = root
-      beamX.material = mats.panelPillar
-      beamX.isPickable = false
-      shadowGen?.addShadowCaster(beamX)
+      // Side rails (along depth, tilted) connecting low→high posts
+      const railLen = halfD * 2
+      const railMidY = (postLow + postHigh) / 2 + BEAM_H / 2
+      for (const lx of [-halfW, halfW] as const) {
+        const rail = MeshBuilder.CreateBox(
+          `railZ-${panel.id}-${lx}`,
+          { width: BEAM_T, height: BEAM_H, depth: railLen + BEAM_T },
+          scene,
+        )
+        rail.position = new Vector3(lx, railMidY, 0)
+        rail.rotation.x = -tiltRad
+        rail.parent = root
+        rail.material = mats.panelPillar
+        rail.isPickable = false
+        shadowGen?.addShadowCaster(rail)
+      }
 
-      const beamZ = MeshBuilder.CreateBox(
-        `beamZ-${panel.id}`,
-        { width: 0.042, height: BEAM_H, depth: hd * 2 + 0.1 },
+      // Cross rails at low and high edges (horizontal, span width)
+      const crossSpecs = [
+        { lz: -halfD, y: postLow + BEAM_H / 2 },
+        { lz: halfD, y: postHigh + BEAM_H / 2 },
+      ]
+      for (const cs of crossSpecs) {
+        const rail = MeshBuilder.CreateBox(
+          `railX-${panel.id}-${cs.lz}`,
+          { width: halfW * 2 + BEAM_T, height: BEAM_H, depth: BEAM_T },
+          scene,
+        )
+        rail.position = new Vector3(0, cs.y, cs.lz)
+        rail.parent = root
+        rail.material = mats.panelPillar
+        rail.isPickable = false
+        shadowGen?.addShadowCaster(rail)
+      }
+
+      // Mid purlin under panel (tilted, along width)
+      const purlin = MeshBuilder.CreateBox(
+        `purlin-${panel.id}`,
+        { width: halfW * 2 + BEAM_T * 0.5, height: BEAM_H * 0.85, depth: BEAM_T },
         scene,
       )
-      beamZ.position = new Vector3(0, beamY, 0)
-      beamZ.parent = root
-      beamZ.material = mats.panelPillar
-      beamZ.isPickable = false
-      shadowGen?.addShadowCaster(beamZ)
+      purlin.position = new Vector3(0, railMidY, 0)
+      purlin.rotation.x = -tiltRad
+      purlin.parent = root
+      purlin.material = mats.panelPillar
+      purlin.isPickable = false
+      shadowGen?.addShadowCaster(purlin)
+
+      // Panel rests on the plane through post tops / clamps
+      const planeY = postLow + rise / 2
+      tilt.position.y = planeY + CLAMP_GAP + 0.05
+      tilt.rotation.x = -tiltRad
+      moduleLift = FACE_H / 2 + 0.006
+      hitY = planeY + CLAMP_GAP + 0.05
     }
 
     const frame = MeshBuilder.CreateBox(

@@ -1,0 +1,45 @@
+{
+  "name": "solar-preview-poc",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@babylonjs/core": "6.46.0",
+    "@babylonjs/gui": "6.46.0",
+    "@babylonjs/materials": "6.46.0",
+    "@googlemaps/js-api-loader": "^1.16.8",
+    "earcut": "2.2.4",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "suncalc": "1.9.0",
+    "zustand": "5.0.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@tailwindcss/vite": "4.1.14",
+    "@types/earcut": "^2.1.4",
+    "@types/google.maps": "^3.58.1",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/suncalc": "1.9.2",
+    "@vitejs/plugin-react": "^6.1.2",
+    "eslint": "^10.13.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.13.0",
+    "tailwindcss": "4.1.14",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.2",
+    "vite": "^8.3.4",
+    "vitest": "^3.2.4"
+  }
+}

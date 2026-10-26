@@ -14,7 +14,7 @@ import { resolveGableMount, type GableMount } from '../geometry/gableMount'
 import type { RoofObstacle } from '../geometry/obstacleTypes'
 import { validatePanelPlacement } from '../geometry/panelValidator'
 import type { FootprintPoint, PanelSettings, RoofPanel, ShapeDims } from '../types'
-import type { RoofMaterials } from './materials'
+import { panelMatsForModule, type RoofMaterials } from './materials'
 
 export type PanelDragCallbacks = {
   onSelect: (id: string) => void
@@ -163,9 +163,14 @@ export function buildPanels(
       },
       scene,
     )
+    const { face: faceMat, frame: frameMat } = panelMatsForModule(
+      mats,
+      settings.moduleType,
+    )
+
     frame.parent = tilt
     frame.position.y = moduleLift
-    frame.material = mats.panelFrame
+    frame.material = frameMat
     frame.isPickable = false
     shadowGen?.addShadowCaster(frame)
 
@@ -180,7 +185,7 @@ export function buildPanels(
     )
     face.parent = tilt
     face.position.y = moduleLift + 0.012
-    face.material = mats.panel
+    face.material = faceMat
     face.metadata = { panelId: panel.id }
     face.isPickable = false
     shadowGen?.addShadowCaster(face)

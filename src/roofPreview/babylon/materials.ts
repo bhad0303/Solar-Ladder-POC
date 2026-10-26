@@ -36,10 +36,16 @@ export type RoofMaterials = {
   tank: StandardMaterial
   driveway: PBRMaterial
   boundary: PBRMaterial
-  /** Dark PV cell face with procedural grid */
+  /** Dark PV cell face with procedural grid (standard crystalline) */
   panel: StandardMaterial
+  /** Premium mono — near-black cells */
+  panelPremium: StandardMaterial
+  /** Thin-film — uniform purple/teal, no cell grid */
+  panelThinFilm: StandardMaterial
   /** Aluminum frame around modules */
   panelFrame: StandardMaterial
+  panelFramePremium: StandardMaterial
+  panelFrameThinFilm: StandardMaterial
   /** Dark steel canopy pillars under the array */
   panelPillar: StandardMaterial
   /** Solar water-heater collector (blue/purple tint) */
@@ -50,20 +56,49 @@ export type RoofMaterials = {
   missing: string[]
 }
 
-/** Procedural PV cell grid (dark silicon + silver busbars). */
-function makePanelCellTexture(scene: Scene): DynamicTexture {
+type PanelFaceVariant = 'standard' | 'premium' | 'thin-film'
+
+/** Procedural PV face texture by module type. */
+function makePanelCellTexture(
+  scene: Scene,
+  variant: PanelFaceVariant,
+): DynamicTexture {
   const size = 256
-  const tex = new DynamicTexture('panelCellTex', { width: size, height: size }, scene, false)
+  const tex = new DynamicTexture(
+    `panelCellTex-${variant}`,
+    { width: size, height: size },
+    scene,
+    false,
+  )
   const ctx = tex.getContext() as CanvasRenderingContext2D
 
-  // Dark blue silicon base
-  ctx.fillStyle = '#0B1F3A'
+  if (variant === 'thin-film') {
+    // Amorphous thin-film: smooth purple-teal, no crystalline grid
+    const g = ctx.createLinearGradient(0, 0, size, size)
+    g.addColorStop(0, '#1A3A4A')
+    g.addColorStop(0.4, '#2A4A5C')
+    g.addColorStop(0.7, '#1E3550')
+    g.addColorStop(1, '#142838')
+    ctx.fillStyle = g
+    ctx.fillRect(0, 0, size, size)
+    ctx.fillStyle = 'rgba(80, 160, 180, 0.08)'
+    for (let i = 0; i < 12; i++) {
+      ctx.fillRect(0, i * (size / 12), size, 2)
+    }
+    tex.update()
+    tex.wrapU = Texture.CLAMP_ADDRESSMODE
+    tex.wrapV = Texture.CLAMP_ADDRESSMODE
+    return tex
+  }
+
+  const premium = variant === 'premium'
+  ctx.fillStyle = premium ? '#05080F' : '#0B1F3A'
   ctx.fillRect(0, 0, size, size)
 
-  const cols = 6
-  const rows = 10
+  const cols = premium ? 8 : 6
+  const rows = premium ? 12 : 10
   const pad = 6
-  const gap = 2
+  const gap = premium ? 1.5 : 2
   const cellW = (size - pad * 2 - gap * (cols - 1)) / cols
   const cellH = (size - pad * 2 - gap * (rows - 1)) / rows
 
@@ -72,14 +107,21 @@ function makePanelCellTexture(scene: Scene): DynamicTexture {
       const x = pad + c * (cellW + gap)
       const y = pad + r * (cellH + gap)
       const g = ctx.createLinearGradient(x, y, x + cellW, y + cellH)
-      g.addColorStop(0, '#163A66')
-      g.addColorStop(0.45, '#0E2748')
-      g.addColorStop(1, '#0A1A32')
+      if (premium) {
+        g.addColorStop(0, '#0A1220')
+        g.addColorStop(0.45, '#060B14')
+        g.addColorStop(1, '#03060C')
+      } else {
+        g.addColorStop(0, '#163A66')
+        g.addColorStop(0.45, '#0E2748')
+        g.addColorStop(1, '#0A1A32')
+      }
       ctx.fillStyle = g
       ctx.fillRect(x, y, cellW, cellH)
 
-      // Fine finger lines
-      ctx.strokeStyle = 'rgba(180,200,220,0.22)'
+      ctx.strokeStyle = premium
+        ? 'rgba(160,175,190,0.18)'
+        : 'rgba(180,200,220,0.22)'
       ctx.lineWidth = 0.6
       for (let i = 1; i < 4; i++) {
         const fx = x + (cellW * i) / 4
@@ -91,17 +133,38 @@ function makePanelCellTexture(scene: Scene): DynamicTexture {
     }
   }
 
-  // Horizontal busbars
-  ctx.fillStyle = 'rgba(200, 210, 220, 0.55)'
+  ctx.fillStyle = premium
+    ? 'rgba(180, 190, 200, 0.4)'
+    : 'rgba(200, 210, 220, 0.55)'
   for (let r = 0; r <= rows; r++) {
     const y = pad + r * (cellH + gap) - gap / 2
-    ctx.fillRect(pad, y - 1, size - pad * 2, 2.2)
+    ctx.fillRect(pad, y - 1, size - pad * 2, premium ? 1.6 : 2.2)
   }
 
   tex.update()
   tex.wrapU = Texture.CLAMP_ADDRESSMODE
   tex.wrapV = Texture.CLAMP_ADDRESSMODE
   return tex
+}
+
+function makePanelFaceMat(
+  scene: Scene,
+  name: string,
+  variant: PanelFaceVariant,
+  emissive: Color3,
+): StandardMaterial {
+  const mat = new StandardMaterial(name, scene)
+  const cellTex = makePanelCellTexture(scene, variant)
+  mat.diffuseTexture = cellTex
+  mat.diffuseColor = new Color3(1, 1, 1)
+  mat.emissiveTexture = cellTex
+  mat.emissiveColor = emissive
+  mat.specularColor =
+    variant === 'thin-film'
+      ? new Color3(0.55, 0.6, 0.65)
+      : new Color3(0.45, 0.5, 0.55)
+  mat.specularPower = variant === 'premium' ? 80 : 64
+  return mat
 }
 
 /** Terracotta roof-tile rows (reference gable look). */
@@ -245,18 +308,45 @@ export function createRoofMaterials(scene: Scene): RoofMaterials {
   const leafAlt = solidPbr(scene, 'leafAltPbr', hex('#4A8F42'), 0.9, 0, null)
   const leafAlt2 = solidPbr(scene, 'leafAlt2Pbr', hex('#356B32'), 0.92, 0, null)
 
-  const panel = new StandardMaterial('panelStd', scene)
-  const cellTex = makePanelCellTexture(scene)
-  panel.diffuseTexture = cellTex
-  panel.diffuseColor = new Color3(1, 1, 1)
-  panel.emissiveTexture = cellTex
-  panel.emissiveColor = new Color3(0.35, 0.38, 0.42)
-  panel.specularColor = new Color3(0.45, 0.5, 0.55)
-  panel.specularPower = 64
+  const panel = makePanelFaceMat(
+    scene,
+    'panelStd',
+    'standard',
+    new Color3(0.35, 0.38, 0.42),
+  )
+  const panelPremium = makePanelFaceMat(
+    scene,
+    'panelPremium',
+    'premium',
+    new Color3(0.22, 0.24, 0.28),
+  )
+  const panelThinFilm = makePanelFaceMat(
+    scene,
+    'panelThinFilm',
+    'thin-film',
+    new Color3(0.3, 0.4, 0.45),
+  )
 
   const panelFrame = solidStd(scene, 'panelFrameStd', hex('#C5CBD3'), 0.12)
   panelFrame.specularColor = new Color3(0.55, 0.55, 0.58)
   panelFrame.specularPower = 48
+
+  const panelFramePremium = solidStd(
+    scene,
+    'panelFramePremium',
+    hex('#8A9098'),
+    0.1,
+  )
+  panelFramePremium.specularColor = new Color3(0.65, 0.62, 0.55)
+  panelFramePremium.specularPower = 64
+
+  const panelFrameThinFilm = solidStd(
+    scene,
+    'panelFrameThinFilm',
+    hex('#3D4A52'),
+    0.14,
+  )
+  panelFrameThinFilm.specularColor = new Color3(0.4, 0.45, 0.48)
 
   const panelPillar = solidStd(scene, 'panelPillarStd', hex('#2A2E33'), 0.1)
   panelPillar.specularColor = new Color3(0.3, 0.32, 0.34)
@@ -281,12 +371,31 @@ export function createRoofMaterials(scene: Scene): RoofMaterials {
     driveway,
     boundary,
     panel,
+    panelPremium,
+    panelThinFilm,
     panelFrame,
+    panelFramePremium,
+    panelFrameThinFilm,
     panelPillar,
     heaterGlass,
     wallPbr,
     roofFlatPbr,
     missing: [],
+  }
+}
+
+/** Pick face + frame materials for a module type. */
+export function panelMatsForModule(
+  mats: RoofMaterials,
+  moduleType: 'standard' | 'premium' | 'thin-film' | undefined,
+): { face: StandardMaterial; frame: StandardMaterial } {
+  switch (moduleType) {
+    case 'premium':
+      return { face: mats.panelPremium, frame: mats.panelFramePremium }
+    case 'thin-film':
+      return { face: mats.panelThinFilm, frame: mats.panelFrameThinFilm }
+    default:
+      return { face: mats.panel, frame: mats.panelFrame }
   }
 }
 

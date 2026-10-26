@@ -16,7 +16,32 @@ import {
   type LengthUnit,
   type RoofType,
 } from './types'
+import { dateFromDayOfYear } from './babylon/sunPath'
+import { SoftNumberInput } from './SoftNumberInput'
+import { SolarPanelSetupForm } from './SolarPanelSetupForm'
 import { UiSelect } from './UiSelect'
+
+const MONTH_SHORT = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const
+
+function formatDayOfYearLabel(dayOfYear: number): string {
+  const d = dateFromDayOfYear(dayOfYear)
+  const day = d.getUTCDate()
+  const month = MONTH_SHORT[d.getUTCMonth()] ?? 'Jan'
+  return `${day} ${month} · day ${dayOfYear}`
+}
 
 const field =
   'ui-input no-spinner w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm'
@@ -55,17 +80,15 @@ function NumField({
         {label} ({suffix})
       </span>
       <div className="relative">
-        <input
-          type="number"
-          className={`${field} pr-9`}
+        <SoftNumberInput
+          className={`${field} pr-9 no-spinner`}
           value={Number(display.toFixed(unit === 'ft' ? 2 : 3))}
           min={min !== undefined ? mToDisplay(min, unit) : undefined}
           max={max !== undefined ? mToDisplay(max, unit) : undefined}
-          step={displayStep}
-          onChange={(e) => {
-            const v = Number(e.target.value)
-            if (!Number.isFinite(v)) return
-            onMeters(displayToM(v, unit))
+          step={String(displayStep)}
+          onCommit={(n) => {
+            if (n === undefined || !Number.isFinite(n)) return
+            onMeters(displayToM(n, unit))
           }}
         />
         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500">
@@ -195,13 +218,14 @@ export function HouseForm() {
   const setSunMinuteOfDay = useRoofStore((s) => s.setSunMinuteOfDay)
   const sunDayOfYear = useRoofStore((s) => s.sunDayOfYear)
   const setSunDayOfYear = useRoofStore((s) => s.setSunDayOfYear)
+  const setSelectedMonth = useRoofStore((s) => s.setSelectedMonth)
 
   const roofAllowed = supportedRoofTypes(house.shape)
   const sunH = Math.floor(sunMinuteOfDay / 60)
   const sunM = String(sunMinuteOfDay % 60).padStart(2, '0')
 
   return (
-    <div className="sidebar-scroll flex h-full flex-col gap-3 overflow-y-auto px-4 py-4 text-slate-800">
+    <div className="sidebar-scroll flex h-full min-h-0 flex-col gap-3 overflow-y-auto overscroll-y-contain px-4 py-4 text-slate-800">
       <header className="shrink-0 pb-1">
         <h1 className="text-lg font-semibold tracking-tight text-slate-900">
           Solar Roof Preview
@@ -429,6 +453,50 @@ export function HouseForm() {
         />
       </Section>
 
+      <SolarPanelSetupForm />
+
+      <Section
+        title="Layout tools"
+        hint={`${panels.length} panels · ${totalKw().toFixed(2)} kW (applied)`}
+      >
+        <label className="flex flex-col gap-1.5">
+          <span className={labelCls}>Panel count</span>
+          <SoftNumberInput
+            className={`${field} no-spinner`}
+            value={panels.length}
+            step="1"
+            min={0}
+            max={1000}
+            onCommit={(n) => {
+              if (n === undefined || !Number.isFinite(n)) return
+              setPanelCount(Math.min(1000, Math.max(0, Math.round(n))))
+            }}
+          />
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className={btnPrimary} onClick={() => autoFill()}>
+            Auto-fill
+          </button>
+          <button type="button" className={btnGhost} onClick={() => addPanel()}>
+            + Panel
+          </button>
+          <button
+            type="button"
+            className={btnGhost}
+            onClick={() => deleteSelected()}
+          >
+            Delete
+          </button>
+          <button
+            type="button"
+            className={btnGhost}
+            onClick={() => clearPanels()}
+          >
+            Clear
+          </button>
+        </div>
+      </Section>
+
       <Section
         title="Roof obstacles"
         hint={`${obstacles.length} obstacle(s)${
@@ -579,115 +647,6 @@ export function HouseForm() {
         ) : null}
       </Section>
 
-      <Section
-        title="Solar panels"
-        hint={`${panels.length} panels · ${totalKw().toFixed(2)} kW`}
-      >
-        <div className="grid grid-cols-2 gap-2.5">
-          <NumField
-            label="Panel W"
-            meters={panelSettings.widthM}
-            unit={unit}
-            onMeters={(widthM) => patchPanelSettings({ widthM })}
-          />
-          <NumField
-            label="Panel H"
-            meters={panelSettings.heightM}
-            unit={unit}
-            onMeters={(heightM) => patchPanelSettings({ heightM })}
-          />
-          <label className="flex flex-col gap-1.5">
-            <span className={labelCls}>Watt</span>
-            <input
-              type="number"
-              className={field}
-              value={panelSettings.watt}
-              onChange={(e) =>
-                patchPanelSettings({ watt: Number(e.target.value) })
-              }
-            />
-          </label>
-          <NumField
-            label="Setback"
-            meters={panelSettings.setbackM}
-            unit={unit}
-            min={0}
-            onMeters={(setbackM) => patchPanelSettings({ setbackM })}
-          />
-          <label className="flex flex-col gap-1.5">
-            <span className={labelCls}>Tilt °</span>
-            <input
-              type="number"
-              min={0}
-              max={30}
-              className={field}
-              value={panelSettings.tiltDeg}
-              onChange={(e) =>
-                patchPanelSettings({ tiltDeg: Number(e.target.value) })
-              }
-            />
-          </label>
-          <UiSelect<'portrait' | 'landscape'>
-            label="Orientation"
-            value={panelSettings.orientation}
-            onChange={(orientation) => patchPanelSettings({ orientation })}
-            options={[
-              { value: 'portrait', label: 'Portrait' },
-              { value: 'landscape', label: 'Landscape' },
-            ]}
-          />
-          <NumField
-            label="Row spacing"
-            meters={panelSettings.rowSpacingM}
-            unit={unit}
-            min={0}
-            onMeters={(rowSpacingM) => patchPanelSettings({ rowSpacingM })}
-          />
-          <label className="flex flex-col gap-1.5">
-            <span className={labelCls}>Panel count</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              className={field}
-              value={panels.length}
-              onChange={(e) => {
-                const raw = e.target.value.replace(/\D/g, '')
-                // Empty while typing — don't wipe panels until a number is committed
-                if (raw === '') return
-                setPanelCount(Math.min(500, Number(raw)))
-              }}
-              onBlur={(e) => {
-                const raw = e.target.value.replace(/\D/g, '')
-                if (raw === '') setPanelCount(panels.length)
-              }}
-            />
-          </label>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className={btnPrimary} onClick={() => autoFill()}>
-            Auto-fill
-          </button>
-          <button type="button" className={btnGhost} onClick={() => addPanel()}>
-            + Panel
-          </button>
-          <button
-            type="button"
-            className={btnGhost}
-            onClick={() => deleteSelected()}
-          >
-            Delete
-          </button>
-          <button
-            type="button"
-            className={btnGhost}
-            onClick={() => clearPanels()}
-          >
-            Clear
-          </button>
-        </div>
-      </Section>
-
       <Section title="Preview">
         <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
           <input
@@ -715,9 +674,11 @@ export function HouseForm() {
           />
         </label>
         <label className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <span className={labelCls}>Day of year</span>
-            <span className="font-mono text-xs text-sky-700">{sunDayOfYear}</span>
+          <div className="flex items-center justify-between gap-2">
+            <span className={labelCls}>Date</span>
+            <span className="text-right font-mono text-xs text-sky-700">
+              {formatDayOfYearLabel(sunDayOfYear)}
+            </span>
           </div>
           <input
             type="range"
@@ -725,8 +686,20 @@ export function HouseForm() {
             min={1}
             max={365}
             value={sunDayOfYear}
-            onChange={(e) => setSunDayOfYear(Number(e.target.value))}
+            onChange={(e) => {
+              const day = Number(e.target.value)
+              setSunDayOfYear(day)
+              // Keep energy "Selected month" in sync with Preview date
+              const d = dateFromDayOfYear(day)
+              setSelectedMonth(d.getUTCMonth())
+            }}
+            aria-label={`Date: ${formatDayOfYearLabel(sunDayOfYear)}`}
           />
+          <p className="text-[10px] leading-snug text-slate-500">
+            Date updates the System Summary selected-month estimate. Sun time
+            moves the 3D sun path (daily/monthly kWh are climate averages, not
+            clock-time power).
+          </p>
         </label>
       </Section>
     </div>

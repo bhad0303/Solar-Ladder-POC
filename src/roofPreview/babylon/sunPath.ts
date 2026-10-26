@@ -12,15 +12,17 @@ import {
 } from '@babylonjs/core'
 import SunCalc from 'suncalc'
 
-/** Demo lat/lon (default Mumbai). */
-const DEFAULT_LAT = 19.076
-const DEFAULT_LON = 72.8777
+/** Demo lat/lon (default Mumbai) when caller omits location. */
+export const DEFAULT_LAT = 19.076
+export const DEFAULT_LON = 72.8777
 
 export function dateFromDayOfYear(dayOfYear: number, year = 2024): Date {
   const d = new Date(Date.UTC(year, 0, 1))
   d.setUTCDate(dayOfYear)
   return d
 }
+
+export type SunLocation = { lat: number; lon: number }
 
 export type SunHandles = {
   path: Mesh | null
@@ -46,12 +48,15 @@ export function applySun(
   origin: Vector3,
   radiusM: number,
   lighting?: SunLightingTargets,
+  location?: SunLocation,
 ): SunHandles {
+  const lat = location?.lat ?? DEFAULT_LAT
+  const lon = location?.lon ?? DEFAULT_LON
   const base = dateFromDayOfYear(dayOfYear)
   const when = new Date(base)
   when.setHours(Math.floor(minuteOfDay / 60), minuteOfDay % 60, 0, 0)
 
-  const pos = SunCalc.getPosition(when, DEFAULT_LAT, DEFAULT_LON)
+  const pos = SunCalc.getPosition(when, lat, lon)
   const alt = pos.altitude
   const az = pos.azimuth
   const x = Math.sin(az) * Math.cos(alt)
@@ -105,7 +110,7 @@ export function applySun(
   for (let m = 0; m < 1440; m += 10) {
     const t = new Date(base)
     t.setHours(Math.floor(m / 60), m % 60, 0, 0)
-    const p = SunCalc.getPosition(t, DEFAULT_LAT, DEFAULT_LON)
+    const p = SunCalc.getPosition(t, lat, lon)
     if (p.altitude <= 0.02) continue
     const dx = Math.sin(p.azimuth) * Math.cos(p.altitude)
     const dy = Math.sin(p.altitude)
@@ -182,7 +187,7 @@ export function applySun(
   for (let h = 6; h <= 18; h++) {
     const t = new Date(base)
     t.setHours(h, 0, 0, 0)
-    const p = SunCalc.getPosition(t, DEFAULT_LAT, DEFAULT_LON)
+    const p = SunCalc.getPosition(t, lat, lon)
     if (p.altitude <= 0.05) continue
     const dx = Math.sin(p.azimuth) * Math.cos(p.altitude)
     const dy = Math.sin(p.altitude)

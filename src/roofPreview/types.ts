@@ -58,21 +58,32 @@ export type HouseConfig = {
 
 export type PanelOrientation = 'portrait' | 'landscape'
 
+export type ModuleType = 'standard' | 'premium' | 'thin-film'
+
 export type PanelSettings = {
+  /** Optional label for the module model */
+  modelName?: string
   /** default 1.134 */
   widthM: number
   /** default 2.278 */
   heightM: number
-  /** default 540 */
+  /** Rated power per panel in W (default 540) */
   watt: number
   /** default 0.5 */
   setbackM: number
   tiltDeg: number
+  /** Compass azimuth degrees [0, 360); 0 N, 90 E, 180 S, 270 W */
+  azimuthDeg: number
   orientation: PanelOrientation
+  /** Gap between panels in a row (default 0.02) */
+  panelGapM: number
   /** default 0.3 */
   rowSpacingM: number
   /** default 0.3 — clearance around obstacles for panels */
   obstacleClearanceM: number
+  moduleType: ModuleType
+  /** System losses percent (default 14) */
+  systemLossPercent: number
 }
 
 export type RoofPanel = {
@@ -141,11 +152,15 @@ export const DEFAULT_PANEL_SETTINGS: PanelSettings = {
   widthM: 1.134,
   heightM: 2.278,
   watt: 540,
-  setbackM: 0.35,
-  tiltDeg: 18,
+  setbackM: 0.5,
+  tiltDeg: 15,
+  azimuthDeg: 180,
   orientation: 'portrait',
+  panelGapM: 0.02,
   rowSpacingM: 0.3,
   obstacleClearanceM: 0.3,
+  moduleType: 'standard',
+  systemLossPercent: 14,
 }
 
 export function activeShapeDims(config: HouseConfig): ShapeDims {

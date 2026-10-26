@@ -113,31 +113,37 @@ If a panel sits too close to (or on top of) a roof item, it may show with a **re
 
 ---
 
-## Solar panels
+## Solar Panel Setup
 
-This section controls the panels and the total power shown at the top of the section (for example, “3 panels · 1.62 kW”).
+Use the collapsible **Solar Panel Setup** section to draft panel size, rated power (W), tilt, azimuth, setback, gaps, system losses, and module type.
 
-### Panel settings
+Important:
 
-| Field | Meaning |
-|-------|---------|
-| **Panel W** | Width of one panel |
-| **Panel H** | Height (length) of one panel |
-| **Watt** | Power of one panel (for example 540) |
-| **Setback** | Empty margin from the roof edge where panels should not go |
-| **Tilt °** | How much the panel leans (degrees). Used on flat roofs. |
-| **Orientation** | **Portrait** (tall) or **Landscape** (wide) |
-| **Row spacing** | Gap between rows of panels |
-| **Panel count** | How many panels are on the roof right now |
+- Changing fields does **not** update the 3D roof until you press **Apply Layout**.
+- **Reset Defaults** restores the draft form to defaults.
+- **Cancel Changes** restores the draft to the last applied settings.
+- Total system capacity (kW) is calculated as panel count × rated power — you do not enter total kW yourself.
 
-### Buttons
+### Layout tools
+
+After applying a layout you can still:
 
 | Button | What it does |
 |--------|----------------|
-| **Auto-fill** | Places as many panels as will fit, using your setback, spacing, and roof items |
+| **Auto-fill** | Re-runs layout with the last applied settings |
 | **+ Panel** | Adds one panel |
 | **Delete** | Removes the panel you selected in the 3D view |
 | **Clear** | Removes all panels |
+
+### Energy results (below the 3D view)
+
+Cards show panel count, installed capacity (kW), covered area, and estimated generation (kWh):
+
+- Average daily generation  
+- Selected month estimate  
+- Annual estimate  
+
+Open **Energy Estimate** for location (latitude / longitude), month, assumptions, warnings, and the “Estimated, not guaranteed” note. If live weather data is unavailable, the app shows an approximate fallback.
 
 ### Moving panels
 
@@ -151,7 +157,7 @@ Click a panel to select it (it gets a blue outline), then drag it on the roof. I
 |---------|----------------|
 | **Measurements overlay** | Turns size labels on or off in the 3D view |
 | **Sun time** | Slide to change the time of day (light and shadows move) |
-| **Day of year** | Slide to pick a day through the year (sun path changes a little) |
+| **Date** | Slide to pick a day through the year. The label shows the calendar date (for example **20 Jun · day 172**) so you know which day it is |
 
 ---
 

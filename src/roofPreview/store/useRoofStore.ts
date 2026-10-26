@@ -1,4 +1,13 @@
 import { create } from 'zustand'
+import { buildSystemSummary } from '../energy/capacity'
+import {
+  DEFAULT_LAT,
+  DEFAULT_LON,
+  type EnergyEstimate,
+  type EstimateStatus,
+  type PanelSpecification,
+  type SolarSystemSummary,
+} from '../energy/types'
 import { footprintFromShape } from '../geometry/footprints'
 import {
   validateObstacleSize,
@@ -12,11 +21,12 @@ import {
   validateObstaclePlacement,
 } from '../geometry/obstacleValidator'
 import {
-  autoFillBySections,
+  autoFillBySectionsDetailed,
   nextAvailablePanels,
   totalKw,
   validatePanelPlacement,
 } from '../geometry/panelValidator'
+import { insetPolygon, signedArea } from '../geometry/polygon'
 import { validateHouseConfig } from '../geometry/validateDims'
 import {
   activeShapeDims,
@@ -31,6 +41,69 @@ import {
   type RoofType,
   wallHeightM,
 } from '../types'
+
+function specToSettings(
+  spec: PanelSpecification,
+  prev: PanelSettings,
+): PanelSettings {
+  return {
+    ...prev,
+    modelName: spec.modelName,
+    widthM: spec.widthM,
+    heightM: spec.heightM,
+    watt: spec.ratedPowerW,
+    setbackM: spec.setbackM,
+    tiltDeg: spec.tiltDeg,
+    azimuthDeg: spec.azimuthDeg,
+    orientation: spec.orientation,
+    panelGapM: spec.panelGapM,
+    rowSpacingM: spec.rowSpacingM,
+    moduleType: spec.moduleType,
+    systemLossPercent: spec.systemLossPercent,
+    obstacleClearanceM: spec.obstacleClearanceM,
+  }
+}
+
+function settingsToSpec(s: PanelSettings): PanelSpecification {
+  return {
+    modelName: s.modelName,
+    widthM: s.widthM,
+    heightM: s.heightM,
+    ratedPowerW: s.watt,
+    orientation: s.orientation,
+    tiltDeg: s.tiltDeg,
+    azimuthDeg: s.azimuthDeg ?? 180,
+    setbackM: s.setbackM,
+    panelGapM: s.panelGapM ?? 0.02,
+    rowSpacingM: s.rowSpacingM,
+    moduleType: s.moduleType ?? 'standard',
+    systemLossPercent: s.systemLossPercent ?? 14,
+    obstacleClearanceM: s.obstacleClearanceM ?? 0.3,
+  }
+}
+
+function usableRoofAreaM2(
+  footprint: FootprintPoint[],
+  setbackM: number,
+): number {
+  const inset = insetPolygon(footprint, setbackM)
+  if (!inset) return 0
+  return Math.abs(signedArea(inset))
+}
+
+function summaryFromState(
+  panels: RoofPanel[],
+  settings: PanelSettings,
+  footprint: FootprintPoint[],
+): SolarSystemSummary {
+  return buildSystemSummary({
+    panelCount: panels.length,
+    widthM: settings.widthM,
+    heightM: settings.heightM,
+    ratedPowerW: settings.watt,
+    usableRoofAreaM2: usableRoofAreaM2(footprint, settings.setbackM),
+  })
+}
 
 export const MAX_FLOORS = 4
 
@@ -55,6 +128,16 @@ export type RoofStore = {
   showMeasurements: boolean
   sunMinuteOfDay: number
   sunDayOfYear: number
+  latitude: number
+  longitude: number
+  selectedMonth: number
+  peakSunHoursPerDay: number
+  systemSummary: SolarSystemSummary
+  energyEstimate: EnergyEstimate | null
+  estimateStatus: EstimateStatus
+  estimateError: string | null
+  layoutBusy: boolean
+  layoutCustomized: boolean
 
   setUnit: (u: LengthUnit) => void
   patchHouse: (
@@ -68,6 +151,11 @@ export type RoofStore = {
   setShape: (shape: HouseShape) => void
   setRoofType: (roofType: RoofType) => void
   patchPanelSettings: (partial: Partial<PanelSettings>) => void
+  applyPanelSpecification: (spec: PanelSpecification) => {
+    ok: boolean
+    message?: string
+  }
+  getAppliedSpecification: () => PanelSpecification
   autoFill: () => void
   addPanel: () => void
   deleteSelected: () => void
@@ -80,11 +168,17 @@ export type RoofStore = {
   updateObstacle: (id: string, partial: Partial<RoofObstacle>) => void
   deleteSelectedObstacle: () => void
   clearObstacles: () => void
-  /** Drop panels that overlap obstacles (clearance included). */
   removePanelsOverlappingObstacles: () => void
   setShowMeasurements: (v: boolean) => void
   setSunMinuteOfDay: (m: number) => void
   setSunDayOfYear: (d: number) => void
+  setLatitude: (lat: number) => void
+  setLongitude: (lon: number) => void
+  setSelectedMonth: (m: number) => void
+  setPeakSunHoursPerDay: (h: number) => void
+  setEnergyEstimate: (e: EnergyEstimate | null) => void
+  setEstimateStatus: (s: EstimateStatus) => void
+  setEstimateError: (msg: string | null) => void
   undoTrim: () => void
   dismissValidation: () => void
   totalKw: () => number
@@ -177,6 +271,21 @@ export const useRoofStore = create<RoofStore>((set, get) => ({
   showMeasurements: false,
   sunMinuteOfDay: 12 * 60,
   sunDayOfYear: 172,
+  latitude: DEFAULT_LAT,
+  longitude: DEFAULT_LON,
+  selectedMonth: 5,
+  peakSunHoursPerDay: 4.5,
+  systemSummary: {
+    panelCount: 0,
+    panelAreaM2: 0,
+    roofCoveragePercent: 0,
+    installedCapacityKw: 0,
+  },
+  energyEstimate: null,
+  estimateStatus: 'idle',
+  estimateError: null,
+  layoutBusy: false,
+  layoutCustomized: false,
 
   setUnit: (unit) => set({ unit }),
 
@@ -295,6 +404,7 @@ export const useRoofStore = create<RoofStore>((set, get) => ({
         return {
           panelSettings,
           panels,
+          systemSummary: summaryFromState(panels, panelSettings, s.footprint),
           validationMessage: conflictMessage(conflictCount),
         }
       }
@@ -302,28 +412,83 @@ export const useRoofStore = create<RoofStore>((set, get) => ({
     })
   },
 
-  autoFill: () => {
-    const { footprint, house, panelSettings, obstacles } = get()
-    if (!validateHouseConfig(house).ok) return
+  getAppliedSpecification: () => settingsToSpec(get().panelSettings),
+
+  applyPanelSpecification: (spec) => {
+    const { footprint, house, obstacles, panels: existing } = get()
+    if (!validateHouseConfig(house).ok) {
+      return { ok: false, message: 'House configuration is invalid.' }
+    }
+    const inset = insetPolygon(footprint, spec.setbackM)
+    if (!inset) {
+      return {
+        ok: false,
+        message: 'Setback removes the complete usable roof area.',
+      }
+    }
+    set({ layoutBusy: true })
+    const panelSettings = specToSettings(spec, get().panelSettings)
     const y = wallHeightM(house) + 0.12
-    const panels = autoFillBySections(
-      activeShapeDims(house),
-      footprint,
-      panelSettings,
-      y,
-      {
-        gable: house.roofType === 'gable',
-        ...obstacleOpts(obstacles),
-      },
-    )
+    const clearance = panelSettings.obstacleClearanceM ?? 0.3
+
+    // Keep the current panel count/positions when panels already exist.
+    // Use Layout tools → Auto-fill to regenerate a full roof layout.
+    let panels: RoofPanel[]
+    let layoutLimitReached = false
+    let layoutCustomized = get().layoutCustomized
+    if (existing.length > 0) {
+      const resized = existing.map((p) => ({
+        ...p,
+        widthM: panelSettings.widthM,
+        heightM: panelSettings.heightM,
+        tiltDeg: panelSettings.tiltDeg,
+        azimuthDeg: panelSettings.azimuthDeg ?? p.azimuthDeg,
+      }))
+      const checked = revalidatePanelConflicts(resized, obstacles, clearance)
+      panels = checked.panels
+      layoutCustomized = true
+    } else {
+      const filled = autoFillBySectionsDetailed(
+        activeShapeDims(house),
+        footprint,
+        panelSettings,
+        y,
+        {
+          gable: house.roofType === 'gable',
+          ...obstacleOpts(obstacles),
+        },
+      )
+      panels = filled.panels
+      layoutLimitReached = filled.layoutLimitReached
+      layoutCustomized = false
+    }
+
+    const systemSummary = summaryFromState(panels, panelSettings, footprint)
+    let validationMessage: string | null = null
+    if (panels.length === 0) {
+      validationMessage =
+        'No panels fit with the current settings. Try smaller setback, panel size, gap, or fewer obstacles.'
+    } else if (layoutLimitReached) {
+      validationMessage = `Layout stopped at the safety limit of ${panels.length} panels. Increase spacing or panel size, or reduce roof area.`
+    }
     set({
+      panelSettings,
       panels,
+      systemSummary,
       selectedPanelId: null,
-      validationMessage:
-        panels.length === 0
-          ? 'No panels fit — try smaller setback, panel size, or fewer obstacles.'
-          : null,
+      layoutBusy: false,
+      layoutCustomized,
+      validationMessage,
     })
+    return {
+      ok: true,
+      message: validationMessage ?? undefined,
+    }
+  },
+
+  autoFill: () => {
+    const spec = get().getAppliedSpecification()
+    get().applyPanelSpecification(spec)
   },
 
   addPanel: () => {
@@ -350,28 +515,41 @@ export const useRoofStore = create<RoofStore>((set, get) => ({
       return
     }
     const id = added[0]!.id
+    const next = [...panels, ...added]
     set({
-      panels: [...panels, ...added],
+      panels: next,
       selectedPanelId: id,
       selectedObstacleId: null,
       validationMessage: null,
+      layoutCustomized: true,
+      systemSummary: summaryFromState(next, panelSettings, footprint),
     })
   },
 
   deleteSelected: () => {
-    const { selectedPanelId, panels, selectedObstacleId } = get()
+    const { selectedPanelId, panels, selectedObstacleId, panelSettings, footprint } =
+      get()
     if (selectedObstacleId) {
       get().deleteSelectedObstacle()
       return
     }
     if (!selectedPanelId) return
+    const next = panels.filter((p) => p.id !== selectedPanelId)
     set({
-      panels: panels.filter((p) => p.id !== selectedPanelId),
+      panels: next,
       selectedPanelId: null,
+      layoutCustomized: true,
+      systemSummary: summaryFromState(next, panelSettings, footprint),
     })
   },
 
-  clearPanels: () => set({ panels: [], selectedPanelId: null }),
+  clearPanels: () =>
+    set((s) => ({
+      panels: [],
+      selectedPanelId: null,
+      layoutCustomized: false,
+      systemSummary: summaryFromState([], s.panelSettings, s.footprint),
+    })),
 
   selectPanel: (id) =>
     set({
@@ -399,6 +577,12 @@ export const useRoofStore = create<RoofStore>((set, get) => ({
       )
       return {
         panels: marked,
+        layoutCustomized: partial.position ? true : s.layoutCustomized,
+        systemSummary: summaryFromState(
+          marked,
+          s.panelSettings,
+          s.footprint,
+        ),
         validationMessage:
           conflictCount > 0 ? conflictMessage(conflictCount) : null,
       }
@@ -410,9 +594,12 @@ export const useRoofStore = create<RoofStore>((set, get) => ({
     const { panels, footprint, house, panelSettings, obstacles } = get()
     if (n === panels.length) return
     if (n < panels.length) {
+      const next = panels.slice(0, n)
       set({
-        panels: panels.slice(0, n),
+        panels: next,
         selectedPanelId: null,
+        layoutCustomized: true,
+        systemSummary: summaryFromState(next, panelSettings, footprint),
         validationMessage: null,
       })
       return
@@ -431,9 +618,12 @@ export const useRoofStore = create<RoofStore>((set, get) => ({
         ...obstacleOpts(obstacles),
       },
     )
+    const next = [...panels, ...added]
     set({
-      panels: [...panels, ...added],
+      panels: next,
       selectedPanelId: null,
+      layoutCustomized: true,
+      systemSummary: summaryFromState(next, panelSettings, footprint),
       validationMessage:
         added.length < need
           ? `Only ${panels.length + added.length} panels fit (requested ${n}).`
@@ -590,7 +780,7 @@ export const useRoofStore = create<RoofStore>((set, get) => ({
   },
 
   removePanelsOverlappingObstacles: () => {
-    const { panels, obstacles, panelSettings } = get()
+    const { panels, obstacles, panelSettings, footprint } = get()
     const { kept, removed } = filterPanelsClearOfObstacles(
       panels,
       obstacles,
@@ -599,6 +789,8 @@ export const useRoofStore = create<RoofStore>((set, get) => ({
     set({
       panels: kept,
       selectedPanelId: null,
+      layoutCustomized: removed > 0 ? true : get().layoutCustomized,
+      systemSummary: summaryFromState(kept, panelSettings, footprint),
       validationMessage:
         removed > 0
           ? `${removed} panel(s) removed (overlap with obstacle + clearance).`
@@ -609,6 +801,20 @@ export const useRoofStore = create<RoofStore>((set, get) => ({
   setShowMeasurements: (showMeasurements) => set({ showMeasurements }),
   setSunMinuteOfDay: (sunMinuteOfDay) => set({ sunMinuteOfDay }),
   setSunDayOfYear: (sunDayOfYear) => set({ sunDayOfYear }),
+  setLatitude: (latitude) => set({ latitude }),
+  setLongitude: (longitude) => set({ longitude }),
+  setSelectedMonth: (selectedMonth) =>
+    set({ selectedMonth: Math.min(11, Math.max(0, Math.floor(selectedMonth))) }),
+  setPeakSunHoursPerDay: (peakSunHoursPerDay) =>
+    set({
+      peakSunHoursPerDay: Math.min(
+        8,
+        Math.max(0.5, peakSunHoursPerDay),
+      ),
+    }),
+  setEnergyEstimate: (energyEstimate) => set({ energyEstimate }),
+  setEstimateStatus: (estimateStatus) => set({ estimateStatus }),
+  setEstimateError: (estimateError) => set({ estimateError }),
 
   undoTrim: () => {
     const snap = get().trimUndo

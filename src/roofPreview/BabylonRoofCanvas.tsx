@@ -17,6 +17,8 @@ export function BabylonRoofCanvas() {
   const unit = useRoofStore((s) => s.unit)
   const sunMinuteOfDay = useRoofStore((s) => s.sunMinuteOfDay)
   const sunDayOfYear = useRoofStore((s) => s.sunDayOfYear)
+  const latitude = useRoofStore((s) => s.latitude)
+  const longitude = useRoofStore((s) => s.longitude)
   const selectPanel = useRoofStore((s) => s.selectPanel)
   const updatePanel = useRoofStore((s) => s.updatePanel)
   const selectObstacle = useRoofStore((s) => s.selectObstacle)
@@ -60,6 +62,8 @@ export function BabylonRoofCanvas() {
       unit: s.unit,
       sunMinuteOfDay: s.sunMinuteOfDay,
       sunDayOfYear: s.sunDayOfYear,
+      latitude: s.latitude,
+      longitude: s.longitude,
     })
     return () => {
       scene.dispose()
@@ -81,6 +85,8 @@ export function BabylonRoofCanvas() {
       unit,
       sunMinuteOfDay,
       sunDayOfYear,
+      latitude,
+      longitude,
     })
   }, [
     house,
@@ -92,11 +98,18 @@ export function BabylonRoofCanvas() {
     panelSettings,
     showMeasurements,
     unit,
+    latitude,
+    longitude,
   ])
 
   useEffect(() => {
-    sceneRef.current?.updateSun({ sunMinuteOfDay, sunDayOfYear })
-  }, [sunMinuteOfDay, sunDayOfYear])
+    sceneRef.current?.updateSun({
+      sunMinuteOfDay,
+      sunDayOfYear,
+      latitude,
+      longitude,
+    })
+  }, [sunMinuteOfDay, sunDayOfYear, latitude, longitude])
 
   return (
     <div className="relative h-full w-full bg-slate-900">

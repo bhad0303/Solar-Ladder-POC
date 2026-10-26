@@ -73,6 +73,56 @@ describe('autoFillPanels', () => {
       expect(r.ok).toBe(true)
     }
   })
+
+  it('returns no panels when panel is larger than usable roof', () => {
+    const roof = footprintRectangle({ lengthM: 2, widthM: 2 })
+    const panels = autoFillPanels(
+      roof,
+      {
+        ...DEFAULT_PANEL_SETTINGS,
+        widthM: 3,
+        heightM: 3,
+        setbackM: 0.5,
+      },
+      3.1,
+      180,
+    )
+    expect(panels).toHaveLength(0)
+  })
+
+  it('honors panelGapM vs denser packing', () => {
+    const roof = footprintRectangle({ lengthM: 20, widthM: 12 })
+    const tight = autoFillPanels(
+      roof,
+      { ...DEFAULT_PANEL_SETTINGS, panelGapM: 0.02, rowSpacingM: 0.3 },
+      3.1,
+      180,
+    )
+    const loose = autoFillPanels(
+      roof,
+      { ...DEFAULT_PANEL_SETTINGS, panelGapM: 0.5, rowSpacingM: 0.3 },
+      3.1,
+      180,
+    )
+    expect(tight.length).toBeGreaterThanOrEqual(loose.length)
+  })
+
+  it('portrait vs landscape changes count', () => {
+    const roof = footprintRectangle({ lengthM: 14, widthM: 10 })
+    const portrait = autoFillPanels(
+      roof,
+      { ...DEFAULT_PANEL_SETTINGS, orientation: 'portrait' },
+      3.1,
+      180,
+    )
+    const landscape = autoFillPanels(
+      roof,
+      { ...DEFAULT_PANEL_SETTINGS, orientation: 'landscape' },
+      3.1,
+      180,
+    )
+    expect(portrait.length).not.toBe(landscape.length)
+  })
 })
 
 describe('totalKw', () => {

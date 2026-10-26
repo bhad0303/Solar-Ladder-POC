@@ -1,3 +1,4 @@
+import { MAX_PANEL_LAYOUT } from '../energy/types'
 import type { FootprintPoint, PanelSettings, RoofPanel, ShapeDims } from '../types'
 import { rectangularSections } from './footprints'
 import type { RoofObstacle } from './obstacleTypes'
@@ -10,6 +11,15 @@ import {
   polygonContainsPolygon,
   polygonsAabbOverlap,
 } from './polygon'
+
+function panelGapM(settings: PanelSettings): number {
+  return settings.panelGapM ?? 0.02
+}
+
+function layoutYawRad(settings: PanelSettings): number {
+  const deg = settings.azimuthDeg ?? 0
+  return (deg * Math.PI) / 180
+}
 
 export type PanelPlacementResult =
   | { ok: true }
@@ -112,13 +122,17 @@ export function autoFillPanels(
   if (!inset) return []
 
   const edge = longestEdge(inset)
-  const yaw = Math.atan2(edge.dx, edge.dz)
+  // Prefer configured compass azimuth for both grid axes and panel yaw
+  const yaw =
+    settings.azimuthDeg !== undefined
+      ? layoutYawRad(settings)
+      : Math.atan2(edge.dx, edge.dz)
   const { widthM, depthM } = panelFootprintSize(settings)
-  const pitchX = widthM + 0.05
+  const pitchX = widthM + panelGapM(settings)
   const pitchZ = depthM + settings.rowSpacingM
 
-  const ux = edge.dx
-  const uz = edge.dz
+  const ux = Math.sin(yaw)
+  const uz = Math.cos(yaw)
   const vx = -uz
   const vz = ux
 
@@ -144,8 +158,13 @@ export function autoFillPanels(
 
   const panels: RoofPanel[] = []
   let id = 0
+  let hitLimit = false
   for (let v = minV + depthM / 2; v <= maxV - depthM / 2 + 1e-6; v += pitchZ) {
     for (let u = minU + widthM / 2; u <= maxU - widthM / 2 + 1e-6; u += pitchX) {
+      if (panels.length >= MAX_PANEL_LAYOUT) {
+        hitLimit = true
+        break
+      }
       const x = cx + u * ux + v * vx
       const z = cz + u * uz + v * vz
       const check = validatePanelPlacement(
@@ -161,12 +180,16 @@ export function autoFillPanels(
         id: `panel-${++id}`,
         position: { x, y: roofY, z },
         tiltDeg: settings.tiltDeg,
-        // Store the yaw actually used for placement (edge-aligned)
         azimuthDeg: (yaw * 180) / Math.PI,
         widthM,
         heightM: depthM,
       })
     }
+    if (hitLimit) break
+  }
+  if (hitLimit) {
+    ;(panels as RoofPanel[] & { _layoutLimitReached?: boolean })._layoutLimitReached =
+      true
   }
   return panels
 }
@@ -205,7 +228,10 @@ function autoFillRectSection(
   const cellD = splitGableHalves && alongX ? upslope : size.depthM
   const cellW2 = splitGableHalves && !alongX ? upslope : cellW
   const cellD2 = splitGableHalves && !alongX ? alongRidge : cellD
-  const pitchX = (splitGableHalves && !alongX ? cellW2 : cellW) + 0.05
+  const gap = panelGapM(settings)
+  const yawRad = layoutYawRad(settings)
+  const azimuthDeg = settings.azimuthDeg ?? 0
+  const pitchX = (splitGableHalves && !alongX ? cellW2 : cellW) + gap
   const pitchZ =
     (splitGableHalves && alongX ? cellD : cellD2) + settings.rowSpacingM
   const panelW = splitGableHalves && !alongX ? cellW2 : cellW
@@ -236,10 +262,13 @@ function autoFillRectSection(
         x <= band.maxX - panelW / 2 + 1e-6;
         x += pitchX
       ) {
+        if (existing.length + out.length >= MAX_PANEL_LAYOUT) {
+          return out
+        }
         const check = validatePanelPlacement(
           sec,
           settings.setbackM,
-          { x, z, widthM: panelW, heightM: panelD, yawRad: 0 },
+          { x, z, widthM: panelW, heightM: panelD, yawRad },
           others,
           undefined,
           obstacleCtx,
@@ -249,7 +278,7 @@ function autoFillRectSection(
           id: `panel-${existing.length + out.length + 1}`,
           position: { x, y: roofY, z },
           tiltDeg: settings.tiltDeg,
-          azimuthDeg: 0,
+          azimuthDeg,
           widthM: panelW,
           heightM: panelD,
         }
@@ -261,6 +290,11 @@ function autoFillRectSection(
   return out
 }
 
+export type AutoFillResult = {
+  panels: RoofPanel[]
+  layoutLimitReached: boolean
+}
+
 export function autoFillBySections(
   shape: ShapeDims,
   fullFootprint: FootprintPoint[],
@@ -268,6 +302,22 @@ export function autoFillBySections(
   roofY: number,
   opts?: { gable?: boolean; obstacles?: RoofObstacle[] },
 ): RoofPanel[] {
+  return autoFillBySectionsDetailed(
+    shape,
+    fullFootprint,
+    settings,
+    roofY,
+    opts,
+  ).panels
+}
+
+export function autoFillBySectionsDetailed(
+  shape: ShapeDims,
+  fullFootprint: FootprintPoint[],
+  settings: PanelSettings,
+  roofY: number,
+  opts?: { gable?: boolean; obstacles?: RoofObstacle[] },
+): AutoFillResult {
   const sections = rectangularSections(shape)
   const all: RoofPanel[] = []
   const split = opts?.gable === true
@@ -279,6 +329,7 @@ export function autoFillBySections(
         }
       : undefined
   for (const sec of sections) {
+    if (all.length >= MAX_PANEL_LAYOUT) break
     all.push(
       ...autoFillRectSection(
         sec,
@@ -291,7 +342,11 @@ export function autoFillBySections(
       ),
     )
   }
-  return all.map((p, i) => ({ ...p, id: `panel-${i + 1}` }))
+  const layoutLimitReached = all.length >= MAX_PANEL_LAYOUT
+  const panels = all
+    .slice(0, MAX_PANEL_LAYOUT)
+    .map((p, i) => ({ ...p, id: `panel-${i + 1}` }))
+  return { panels, layoutLimitReached }
 }
 
 export function nextAvailablePanels(

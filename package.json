@@ -15,11 +15,14 @@
     "@babylonjs/core": "6.46.0",
     "@babylonjs/gui": "6.46.0",
     "@babylonjs/materials": "6.46.0",
+    "@hookform/resolvers": "^6.0.0",
     "earcut": "2.2.4",
     "leaflet": "^1.9.4",
     "react": "19.3.1",
     "react-dom": "19.3.1",
+    "react-hook-form": "^7.91.0",
     "suncalc": "1.9.0",
+    "zod": "^4.6.7",
     "zustand": "5.0.8"
   },
   "devDependencies": {

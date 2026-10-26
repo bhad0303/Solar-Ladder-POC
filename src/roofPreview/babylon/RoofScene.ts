@@ -48,6 +48,8 @@ export type RoofSceneState = {
   unit: LengthUnit
   sunMinuteOfDay: number
   sunDayOfYear: number
+  latitude: number
+  longitude: number
 }
 
 export type RoofSceneCallbacks = {
@@ -172,7 +174,12 @@ export class RoofScene {
   }
 
   /** Sun path + lighting only — no house rebuild (slider-friendly). */
-  updateSun(state: Pick<RoofSceneState, 'sunDayOfYear' | 'sunMinuteOfDay'>): void {
+  updateSun(
+    state: Pick<
+      RoofSceneState,
+      'sunDayOfYear' | 'sunMinuteOfDay' | 'latitude' | 'longitude'
+    >,
+  ): void {
     this.disposeSunPath()
     this.sunPath = applySun(
       this.scene,
@@ -182,6 +189,7 @@ export class RoofScene {
       new Vector3(0, this.lastWallHeight * 0.5, 0),
       Math.max(10, this.lastExtent * 1.35),
       { hemi: this.hemi, skyMat: this.skyMat },
+      { lat: state.latitude, lon: state.longitude },
     )
   }
 

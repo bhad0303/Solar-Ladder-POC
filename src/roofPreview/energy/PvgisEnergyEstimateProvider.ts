@@ -10,7 +10,11 @@ import type {
   ModuleType,
 } from './types'
 
-/** Browser uses Vite same-origin proxy to avoid PVGIS CORS block. */
+/**
+ * Same-origin proxy path:
+ * - Local: Vite `server.proxy` `/pvgis-api` → JRC
+ * - Vercel: rewrite → Edge function `api/pvgis/[...path]`
+ */
 export function pvgisEndpoint(): string {
   if (typeof window !== 'undefined') {
     return '/pvgis-api/PVcalc'
@@ -230,7 +234,7 @@ export class PvgisEnergyEstimateProvider implements EnergyEstimateProvider {
         /support ID/i.test(text)
       ) {
         throw new Error(
-          'PVGIS firewall rejected the request — check Vite /pvgis-api proxy',
+          'PVGIS firewall rejected the request — check /pvgis-api proxy (Vite or Vercel)',
         )
       }
       if (!res.ok) {

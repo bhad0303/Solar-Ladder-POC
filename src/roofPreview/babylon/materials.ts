@@ -399,23 +399,25 @@ export function panelMatsForModule(
   }
 }
 
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    const res = await fetch(path, { method: 'HEAD', cache: 'no-cache' })
-    if (!res.ok) return false
-    const ct = res.headers.get('content-type') ?? ''
-    // Vite SPA fallback often returns text/html for missing assets
-    if (ct.includes('text/html')) return false
-    return true
-  } catch {
-    return false
-  }
+/**
+ * Optional albedo files under public/textures/. Empty = solids only (no HEAD
+ * probes → no 404 spam on Vercel). Add a filename here when you drop the file in.
+ */
+const SHIPPED_OPTIONAL_TEXTURES = new Set<string>([
+  // e.g. 'wall_plaster.jpg', 'grass.jpg', …
+])
+
+function textureFileName(path: string): string {
+  return path.split('/').pop() ?? path
+}
+
+function isShippedOptionalTexture(path: string): boolean {
+  return SHIPPED_OPTIONAL_TEXTURES.has(textureFileName(path))
 }
 
 /**
  * Optionally upgrade solid materials with real albedo maps.
- * Only assigns Texture after confirming the file exists and is not HTML.
- * Logs a single console warning listing any missing paths.
+ * Only loads textures listed in SHIPPED_OPTIONAL_TEXTURES (no network probes).
  */
 export async function applyOptionalAlbedoTextures(
   scene: Scene,
@@ -429,7 +431,6 @@ export async function applyOptionalAlbedoTextures(
     { path: `${TEX}/leaves.jpg`, mat: mats.leaf, u: 2, v: 2 },
   ]
 
-  // Standard house mats: optional diffuse maps (only if file exists)
   const stdJobs: Array<{
     path: string
     mat: StandardMaterial
@@ -438,46 +439,42 @@ export async function applyOptionalAlbedoTextures(
   }> = [
     { path: `${TEX}/wall_plaster.jpg`, mat: mats.wall, u: 4, v: 3 },
     { path: `${TEX}/roof_membrane.jpg`, mat: mats.roofFlat, u: 3, v: 3 },
-    // roofTile keeps procedural terracotta (file would wipe tile pattern)
     { path: `${TEX}/concrete.jpg`, mat: mats.concrete, u: 2, v: 2 },
   ]
 
   const missing: string[] = []
-  await Promise.all(
-    jobs.map(async (job) => {
-      const ok = await fileExists(job.path)
-      if (!ok) {
-        missing.push(job.path)
-        return
-      }
-      const tex = new Texture(job.path, scene, false, true)
-      tex.wrapU = Texture.WRAP_ADDRESSMODE
-      tex.wrapV = Texture.WRAP_ADDRESSMODE
-      tex.uScale = job.u
-      tex.vScale = job.v
-      job.mat.albedoTexture = tex
-    }),
-  )
+  for (const job of jobs) {
+    if (!isShippedOptionalTexture(job.path)) {
+      missing.push(job.path)
+      continue
+    }
+    const tex = new Texture(job.path, scene, false, true)
+    tex.wrapU = Texture.WRAP_ADDRESSMODE
+    tex.wrapV = Texture.WRAP_ADDRESSMODE
+    tex.uScale = job.u
+    tex.vScale = job.v
+    job.mat.albedoTexture = tex
+  }
 
-  await Promise.all(
-    stdJobs.map(async (job) => {
-      const ok = await fileExists(job.path)
-      if (!ok) {
-        if (!missing.includes(job.path)) missing.push(job.path)
-        return
-      }
-      const tex = new Texture(job.path, scene, false, true)
-      tex.wrapU = Texture.WRAP_ADDRESSMODE
-      tex.wrapV = Texture.WRAP_ADDRESSMODE
-      tex.uScale = job.u
-      tex.vScale = job.v
-      job.mat.diffuseTexture = tex
-    }),
-  )
+  for (const job of stdJobs) {
+    if (!isShippedOptionalTexture(job.path)) {
+      if (!missing.includes(job.path)) missing.push(job.path)
+      continue
+    }
+    const tex = new Texture(job.path, scene, false, true)
+    tex.wrapU = Texture.WRAP_ADDRESSMODE
+    tex.wrapV = Texture.WRAP_ADDRESSMODE
+    tex.uScale = job.u
+    tex.vScale = job.v
+    job.mat.diffuseTexture = tex
+  }
 
-  if (missing.length > 0) {
-    console.warn(
-      `[Solar Roof Preview] Missing optional textures (using solid colors): ${missing.join(', ')}`,
+  // Quiet in production — solids are intentional when no files are shipped
+  if (missing.length > 0 && import.meta.env.DEV) {
+    console.info(
+      `[Solar Roof Preview] Optional textures not shipped (solids): ${missing
+        .map(textureFileName)
+        .join(', ')}`,
     )
   }
   mats.missing = missing
@@ -512,43 +509,36 @@ export function installGeneratedEnvironment(scene: Scene): void {
   scene.environmentIntensity = 0.75
 }
 
-/** Prefer file env if present; otherwise generated soft sky cube. */
+/**
+ * Soft generated sky cube (no env.env / env.dds probes — those 404 on Vercel
+ * when files are not in public/textures).
+ */
 export async function setupEnvironment(scene: Scene): Promise<string[]> {
-  const candidates = [`${TEX}/env.env`, `${TEX}/env.dds`]
-  const missingEnv: string[] = []
-  for (const path of candidates) {
-    if (await fileExists(path)) {
-      try {
-        const env = CubeTexture.CreateFromPrefilteredData(path, scene)
-        scene.environmentTexture = env
-        scene.environmentIntensity = 0.85
-        return []
-      } catch {
-        missingEnv.push(path)
-      }
-    } else {
-      missingEnv.push(path)
+  if (isShippedOptionalTexture(`${TEX}/env.env`)) {
+    try {
+      const env = CubeTexture.CreateFromPrefilteredData(`${TEX}/env.env`, scene)
+      scene.environmentTexture = env
+      scene.environmentIntensity = 0.85
+      return []
+    } catch {
+      /* fall through */
+    }
+  }
+  if (isShippedOptionalTexture(`${TEX}/env.dds`)) {
+    try {
+      const env = CubeTexture.CreateFromPrefilteredData(`${TEX}/env.dds`, scene)
+      scene.environmentTexture = env
+      scene.environmentIntensity = 0.85
+      return []
+    } catch {
+      /* fall through */
     }
   }
   installGeneratedEnvironment(scene)
-  return missingEnv
+  return []
 }
 
 /** @deprecated use setupEnvironment + applyOptionalAlbedoTextures */
 export async function probeMissingTextures(): Promise<string[]> {
-  const paths = [
-    `${TEX}/wall_plaster.jpg`,
-    `${TEX}/roof_membrane.jpg`,
-    `${TEX}/roof_tile.jpg`,
-    `${TEX}/concrete.jpg`,
-    `${TEX}/grass.jpg`,
-    `${TEX}/bark.jpg`,
-    `${TEX}/leaves.jpg`,
-    `${TEX}/env.env`,
-  ]
-  const missing: string[] = []
-  for (const p of paths) {
-    if (!(await fileExists(p))) missing.push(p)
-  }
-  return missing
+  return []
 }

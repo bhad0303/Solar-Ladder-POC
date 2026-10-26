@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/pvgis-api/:path*",
+      "destination": "/api/pvgis/:path*"
+    },
+    {
+      "source": "/osm-api/:path*",
+      "destination": "/api/osm/:path*"
+    }
+  ]
+}

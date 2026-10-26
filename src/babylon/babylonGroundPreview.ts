@@ -48,6 +48,8 @@ export class BabylonGroundPreview {
   private sunPathMesh: Mesh | null = null
   private sunPathLabels: Mesh[] = []
   private sunMarker: Mesh | null = null
+  /** Guards overlapping async buildGround() calls (leaked grounds = white cross). */
+  private groundBuildId = 0
   private dirLight: DirectionalLight | null = null
   private hemiLight: HemisphericLight | null = null
   private shadowGen: ShadowGenerator | null = null
@@ -80,6 +82,7 @@ export class BabylonGroundPreview {
       adaptToDeviceRatio: true,
       preserveDrawingBuffer: true,
     })
+    engine.hideLoadingUI()
     const scene = new Scene(engine)
     scene.clearColor = new Color4(0.55, 0.62, 0.68, 1)
 
@@ -88,15 +91,27 @@ export class BabylonGroundPreview {
       'cam',
       -Math.PI / 2.6,
       Math.PI / 3.05,
-      38,
-      new Vector3(0, 1.5, 0),
+      28,
+      new Vector3(0, 2.2, 0),
       scene,
     )
     camera.lowerRadiusLimit = 10
-    camera.upperRadiusLimit = 120
-    camera.upperBetaLimit = Math.PI / 2.05
-    camera.wheelPrecision = 8
+    camera.upperRadiusLimit = 80
+    camera.upperBetaLimit = Math.PI / 2.08
+    camera.wheelPrecision = 12
+    camera.inertia = 0.85
+    camera.panningInertia = 0.85
+    // Smooth zoom — avoid hard snaps that look like blinks
+    camera.wheelDeltaPercentage = 0.012
     camera.attachControl(canvas, true)
+    // Keep page from scrolling while zooming the canvas
+    canvas.addEventListener(
+      'wheel',
+      (e) => {
+        e.preventDefault()
+      },
+      { passive: false },
+    )
 
     const hemi = new HemisphericLight('hemi', new Vector3(0, 1, 0), scene)
     hemi.intensity = 0.72
@@ -121,14 +136,20 @@ export class BabylonGroundPreview {
     shadowGen.normalBias = 0.015
     this.shadowGen = shadowGen
 
-    // Confirmed: GlowLayer blurKernelSize≈64, intensity≈0.6; sun only
-    const glow = new GlowLayer('sunGlow', scene, { blurKernelSize: 64 })
-    glow.intensity = 0.55
+    // Sun-only glow (include-only mode set when sun meshes are created)
+    const glow = new GlowLayer('sunGlow', scene, {
+      blurKernelSize: 64,
+      mainTextureFixedSize: 256,
+    })
+    glow.intensity = 0.45
     this.glowLayer = glow
 
     this.engine = engine
     this.scene = scene
     this.camera = camera
+    // Dev: inspect meshes from browser console
+    ;(window as unknown as { __solarPreview?: BabylonGroundPreview }).__solarPreview =
+      this
 
     void this.buildGround().then(() => {
       if (this.disposed) return
@@ -147,37 +168,55 @@ export class BabylonGroundPreview {
     engine.resize()
   }
 
+  private disposeAllGrounds(): void {
+    if (!this.scene) return
+    for (const m of [...this.scene.meshes]) {
+      if (m.name === 'satGround') m.dispose(false, true)
+    }
+    this.ground = null
+  }
+
   private async buildGround(): Promise<void> {
     if (!this.scene) return
-    this.ground?.dispose()
+    const buildId = ++this.groundBuildId
+    this.disposeAllGrounds()
     this.fallbackBanner?.dispose()
-    this.ground = null
     this.fallbackBanner = null
 
     const img = this.project.imagery
     const probe = await localImageProvider.probe(img)
+    if (this.disposed || buildId !== this.groundBuildId || !this.scene) return
+
+    // Drop any grounds created by overlapping calls while we awaited
+    this.disposeAllGrounds()
+
     const w = img.widthMeters
     const h = img.heightMeters
 
     const ground = MeshBuilder.CreateGround(
       'satGround',
-      { width: w, height: h, subdivisions: 2 },
+      { width: w, height: h, subdivisions: 1 },
       this.scene,
     )
-    ground.position.y = 0
+    // Slightly below y=0 so house / plinth never z-fight (blink on orbit/zoom)
+    ground.position.y = -0.04
     ground.rotation.y = (img.rotationDeg * Math.PI) / 180
     ground.receiveShadows = true
+    ground.renderingGroupId = 0
+    ground.isPickable = false
 
     const gMat = new StandardMaterial('satGroundMat', this.scene)
-    gMat.specularColor = new Color3(0.02, 0.02, 0.02)
+    gMat.specularColor = new Color3(0, 0, 0)
+    gMat.specularPower = 1
 
     if (probe.ok) {
       const tex = new Texture(probe.url, this.scene, false, true)
+      tex.updateSamplingMode(Texture.TRILINEAR_SAMPLINGMODE)
+      tex.wrapU = Texture.CLAMP_ADDRESSMODE
+      tex.wrapV = Texture.CLAMP_ADDRESSMODE
       gMat.diffuseTexture = tex
-      // Slightly emissive so photo stays bright while still receiving shadows
-      gMat.emissiveTexture = tex
-      // Keep photo readable but dark enough for tree/house shadows to read
-      gMat.emissiveColor = new Color3(0.18, 0.18, 0.18)
+      // No emissiveTexture — GlowLayer bloom made triangle seams look like a white cross
+      gMat.emissiveColor = new Color3(0.22, 0.22, 0.22)
       this.status = { imageryOk: true, message: null }
     } else {
       gMat.diffuseColor = new Color3(0.28, 0.48, 0.28)
@@ -198,6 +237,7 @@ export class BabylonGroundPreview {
 
     ground.material = gMat
     this.ground = ground
+    this.glowLayer?.addExcludedMesh(ground)
   }
 
   setProject(project: SolarProject): void {
@@ -261,7 +301,11 @@ export class BabylonGroundPreview {
         lengthUnit: this.lengthUnit,
       },
     )
-    this.handles.root.position.y = 0.05
+    // Sit clearly above ground plane (fixes “under road” / blink z-fight)
+    this.handles.root.position.y = 0.08
+    for (const m of this.handles.root.getChildMeshes(true)) {
+      m.renderingGroupId = 1
+    }
 
     this.sunMarker = MeshBuilder.CreateSphere(
       'sunMarker',
@@ -302,6 +346,7 @@ export class BabylonGroundPreview {
       loc.lon,
       loc.timeZone,
     )
+    const off = this.project.buildingOffsetMeters
     const overlay = updateSunVisuals({
       dirLight: this.dirLight,
       sunMarker: this.sunMarker,
@@ -328,8 +373,12 @@ export class BabylonGroundPreview {
         loc.lon,
         loc.timeZone,
       ),
-      // Keep arc close above the house
-      radiusM: 20,
+      // Arc hugs the house (site-relative, stays in frame with the building)
+      radiusM: Math.max(
+        8,
+        Math.min(this.project.imagery.widthMeters, this.project.imagery.heightMeters) * 0.24,
+      ),
+      origin: new Vector3(off.x, 2.5, off.z),
     })
     this.sunPathMesh = overlay.path
     this.sunPathLabels = overlay.labels
@@ -337,20 +386,19 @@ export class BabylonGroundPreview {
       this.sunMarker.setEnabled(sun.isUp)
     }
     if (this.hemiLight) {
-      // Warm near horizon, cooler midday, dim at night
+      // Warm near horizon, cooler midday, dim at night — keep clearColor stable (no blink)
       const alt = sun.altitudeRad
       if (!sun.isUp) {
-        this.hemiLight.intensity = 0.1
-        this.scene.clearColor = new Color4(0.08, 0.1, 0.16, 1)
+        this.hemiLight.intensity = 0.15
+        this.hemiLight.diffuse = new Color3(0.55, 0.6, 0.75)
       } else if (alt < 0.25) {
-        this.hemiLight.intensity = 0.45
-        this.hemiLight.diffuse = new Color3(1, 0.7, 0.45)
-        this.scene.clearColor = new Color4(0.75, 0.55, 0.4, 1)
+        this.hemiLight.intensity = 0.5
+        this.hemiLight.diffuse = new Color3(1, 0.75, 0.5)
       } else {
-        this.hemiLight.intensity = 0.62
+        this.hemiLight.intensity = 0.7
         this.hemiLight.diffuse = new Color3(1, 1, 1)
-        this.scene.clearColor = new Color4(0.55, 0.65, 0.78, 1)
       }
+      this.scene.clearColor = new Color4(0.42, 0.48, 0.55, 1)
     }
   }
 

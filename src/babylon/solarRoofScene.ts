@@ -88,6 +88,7 @@ export class SolarRoofScene {
       adaptToDeviceRatio: true,
       preserveDrawingBuffer: true,
     })
+    engine.hideLoadingUI()
     const scene = new Scene(engine)
     scene.clearColor = new Color4(0.42, 0.5, 0.56, 1)
 

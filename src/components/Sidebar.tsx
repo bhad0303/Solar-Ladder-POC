@@ -1,114 +1,155 @@
-import { LocationInput } from './LocationInput'
-import { useProjectStore } from '../store/useProjectStore'
+import {
+  formatDayOfYear,
+  formatMinuteOfDay,
+} from '../geo/coordinates'
+import { allPanels, zoneStats } from '../data/types'
+import { usePreviewStore } from '../state/usePreviewStore'
 
-export function Sidebar() {
-  const statusMessage = useProjectStore((s) => s.statusMessage)
-  const error = useProjectStore((s) => s.error)
-  const lat = useProjectStore((s) => s.location.lat)
-  const lng = useProjectStore((s) => s.location.lng)
-  const footprint = useProjectStore((s) => s.footprint)
-  const mapReady = useProjectStore((s) => s.mapReady)
-  const lookingUp = useProjectStore((s) => s.lookingUp)
-  const scenePhase = useProjectStore((s) => s.scenePhase)
-  const startBuild3D = useProjectStore((s) => s.startBuild3D)
+type Props = {
+  capsLabel: string | null
+  onRunSunAccess: () => void
+  sunAccessBusy: boolean
+}
+
+/**
+ * Solar preview controls — day/time, panels, sun access, measurements.
+ * Ground imagery = local company satellite photo (no paid map APIs).
+ */
+export function Sidebar({ capsLabel, onRunSunAccess, sunAccessBusy }: Props) {
+  const project = usePreviewStore((s) => s.project)
+  const settings = usePreviewStore((s) => s.settings)
+  const patchSettings = usePreviewStore((s) => s.patchSettings)
+  const setDay = usePreviewStore((s) => s.setDay)
+  const setTime = usePreviewStore((s) => s.setTime)
+  const presetJune = usePreviewStore((s) => s.presetJune)
+  const presetDec = usePreviewStore((s) => s.presetDec)
+  const totalKw = usePreviewStore((s) => s.totalKw)
+
+  const panels = allPanels(project)
+  const zones = zoneStats(project)
 
   return (
-    <aside className="flex w-full max-w-sm shrink-0 flex-col gap-5 overflow-y-auto border-r border-slate-700 bg-slate-950 p-4 text-slate-100">
-      <header>
-        <h1 className="text-lg font-semibold text-white">Solar Roof Preview</h1>
-        <p className="mt-1 text-xs text-slate-400">
-          Frontend-only POC · OSM footprints · Google satellite background
-        </p>
+    <aside className="sidebar w-full max-w-sm shrink-0">
+      <header className="sidebar-header">
+        <h1>{project.name}</h1>
+        <p className="muted">{project.subtitle}</p>
+        <p className="kw">{totalKw().toFixed(1)} kW · {panels.length} panels</p>
       </header>
 
-      <LocationInput />
-
-      <section className="space-y-2 text-sm">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-sky-300/90">
-          Status
-        </h2>
-        <p className="text-slate-300">
-          Pin:{' '}
-          <span className="font-mono text-sky-200">
-            {lat.toFixed(5)}, {lng.toFixed(5)}
-          </span>
-        </p>
-        <p className="text-slate-400">
-          Map: {mapReady ? 'ready' : 'loading…'}
-          {lookingUp ? ' · looking up OSM…' : ''}
-        </p>
-        <p className="text-slate-400">
-          Footprint:{' '}
-          {footprint
-            ? `${footprint.quality.footprint} (${footprint.selection})`
-            : 'none yet — Find house'}
-        </p>
-        {footprint ? (
-          <p className="rounded border border-amber-800/60 bg-amber-950/40 p-2 text-xs text-amber-100">
-            <span className="font-semibold text-amber-200">Roof area: </span>
-            {footprint.areaM2.toFixed(0)} m²
-            {footprint.osmId ? (
-              <span className="mt-1 block font-mono text-[10px] text-amber-200/70">
-                {footprint.osmId}
-                {footprint.tags.building
-                  ? ` · building=${footprint.tags.building}`
-                  : ''}
+      <section>
+        <h2>Solar array</h2>
+        <ul className="zone-list">
+          {zones.map((z) => (
+            <li key={z.id}>
+              <span>{z.name}</span>
+              <span className="muted">
+                {z.count} panels · {z.kw.toFixed(1)} kW
               </span>
-            ) : null}
-          </p>
-        ) : null}
-
-        <button
-          type="button"
-          disabled={!footprint || scenePhase === 'building'}
-          onClick={() => startBuild3D()}
-          className="w-full rounded bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {scenePhase === 'building'
-            ? 'Building 3D…'
-            : scenePhase === 'ready'
-              ? 'Rebuild 3D house'
-              : 'Build 3D house'}
-        </button>
-        <p className="text-[11px] text-slate-500">
-          3D:{' '}
-          {scenePhase === 'idle' && !footprint
-            ? 'waiting for footprint'
-            : scenePhase === 'idle'
-              ? 'ready to start — button dabao'
-              : scenePhase === 'building'
-                ? 'loading…'
-                : scenePhase === 'ready'
-                  ? 'ready (right panel)'
-                  : 'error'}
+            </li>
+          ))}
+        </ul>
+        <p className="muted" style={{ marginTop: '0.5rem' }}>
+          Each panel sits on 4 pillars and a rack (raised, tilted). Panel Info
+          shows the labels.
         </p>
-        {statusMessage ? (
-          <p className="rounded border border-slate-700 bg-slate-900/80 p-2 text-xs text-slate-300">
-            {statusMessage}
-          </p>
-        ) : null}
-        {error ? (
-          <p className="rounded border border-rose-800 bg-rose-950/50 p-2 text-xs text-rose-300">
-            {error}
-          </p>
-        ) : null}
       </section>
 
-      <section className="mt-auto space-y-1 border-t border-slate-800 pt-3 text-[11px] text-slate-500">
-        <p>
-          Outline ={' '}
-          <a
-            className="underline hover:text-slate-300"
-            href="https://www.openstreetmap.org/copyright"
-            target="_blank"
-            rel="noreferrer"
+      <section>
+        <h2>Sun path</h2>
+        <label className="field">
+          <span>Date: {formatDayOfYear(settings.dayOfYear)}</span>
+          <input
+            type="range"
+            min={1}
+            max={365}
+            value={settings.dayOfYear}
+            onChange={(e) => setDay(Number(e.target.value))}
+          />
+        </label>
+        <label className="field">
+          <span>Time: {formatMinuteOfDay(settings.minuteOfDay)}</span>
+          <input
+            type="range"
+            min={0}
+            max={1439}
+            step={5}
+            value={settings.minuteOfDay}
+            onChange={(e) => setTime(Number(e.target.value))}
+          />
+        </label>
+        <div className="btn-row">
+          <button
+            type="button"
+            onClick={() => patchSettings({ playing: !settings.playing })}
           >
-            OpenStreetMap
-          </a>
-          . 3D ground = Esri World Imagery at your pin (Demo Key Static Maps
-          limited). Panels + sun path auto after Build.
+            {settings.playing ? 'Pause' : 'Play day'}
+          </button>
+          <button type="button" onClick={presetJune}>
+            June 21, noon
+          </button>
+          <button type="button" onClick={presetDec}>
+            Dec 21, noon
+          </button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Preview</h2>
+        <label className="toggle">
+          <span>Panel info</span>
+          <input
+            type="checkbox"
+            checked={settings.panelInfo}
+            onChange={(e) => patchSettings({ panelInfo: e.target.checked })}
+          />
+        </label>
+        <label className="toggle">
+          <span>Sun access colours</span>
+          <input
+            type="checkbox"
+            checked={settings.sunAccess}
+            onChange={(e) => {
+              patchSettings({ sunAccess: e.target.checked })
+              if (e.target.checked) onRunSunAccess()
+            }}
+          />
+        </label>
+        {settings.sunAccess ? (
+          <p className="disclaimer">
+            Geometric sun-access sample (not engineering-grade).
+            {sunAccessBusy ? ' Computing…' : ''}
+          </p>
+        ) : null}
+        <label className="toggle">
+          <span>Measurements</span>
+          <input
+            type="checkbox"
+            checked={settings.measurements}
+            onChange={(e) =>
+              patchSettings({ measurements: e.target.checked })
+            }
+          />
+        </label>
+        <label className="toggle">
+          <span>Length in feet</span>
+          <input
+            type="checkbox"
+            checked={settings.lengthUnit === 'ft'}
+            onChange={(e) =>
+              patchSettings({ lengthUnit: e.target.checked ? 'ft' : 'm' })
+            }
+          />
+        </label>
+      </section>
+
+      <section className="disclaimer-block">
+        <p>
+          Ground is an Unsplash aerial of a red-roof house. The 3D house sits
+          on that roof, with panels on 4 pillars. Source:{' '}
+          <code>welcome-4KG9VicLWQY-unsplash.jpg</code>
         </p>
-        <p>Google Maps JS = left satellite basemap only.</p>
+        {capsLabel ? <p className="muted">{capsLabel}</p> : null}
+        <p className="muted">Timezone: {project.location.timeZone}</p>
       </section>
     </aside>
   )

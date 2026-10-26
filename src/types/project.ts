@@ -9,7 +9,11 @@ export type Vec2 = { x: number; z: number }
 
 export type DataQuality = 'osm' | 'estimated' | 'not_found' | 'manual'
 
-export type FootprintSource = 'overpass' | 'manual_draw' | 'manual_box' | null
+export type FootprintSource =
+  | 'overpass'
+  | 'manual_draw'
+  | 'manual_box'
+  | null
 
 export type BuildingFootprint = {
   /** Closed ring in local meters (first ≠ last duplicate optional; cleaned later). */

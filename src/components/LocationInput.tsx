@@ -71,8 +71,8 @@ export function LocationInput() {
         {lookingUp ? 'Finding OSM outline…' : 'Find house'}
       </button>
       <p className="text-xs text-slate-500">
-        Map pe pin roof ke upar rakho, Find house dabao — area OSM se calculate
-        hoti hai (Google image se outline nahi kaatte).
+        Place the pin on the roof and choose Find house. The area comes from
+        the free OSM outline, not from automatic satellite tracing.
       </p>
     </section>
   )

@@ -147,7 +147,7 @@ export function buildFootprintHouse(
       H + 0.14 + parapetH / 2,
       (a.z + b.z) / 2,
     )
-    const yaw = Math.atan2(b.x - a.x, b.z - a.z)
+    const yaw = Math.atan2(b.x - a.x, b.z - a.z) - Math.PI / 2
     const seg = MeshBuilder.CreateBox(
       `parapet-${i}`,
       { width: len, height: parapetH, depth: parapetT },

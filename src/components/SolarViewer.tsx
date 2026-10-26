@@ -97,8 +97,8 @@ export function SolarViewer() {
           <p className="text-sm font-medium text-slate-200">3D Solar Viewer</p>
           <p className="max-w-sm text-xs text-slate-500">
             {footprint
-              ? `Footprint ready (${footprint.areaM2.toFixed(0)} m²). Build dabao — satellite ground + panels + sun path banega.`
-              : 'Pehle map pe Find house se OSM outline lo, phir yahan 3D banega.'}
+              ? `Footprint ready (${footprint.areaM2.toFixed(0)} m²). Choose Build to load the satellite ground, panels, and sun path.`
+              : 'Find the house on the map to load the OSM outline. The 3D view will appear here.'}
           </p>
           {sceneError ? (
             <p className="max-w-sm text-xs text-rose-300">{sceneError}</p>
@@ -121,7 +121,7 @@ export function SolarViewer() {
             aria-hidden
           />
           <p className="text-sm font-medium text-emerald-200">
-            3D ban raha hai…
+            Building 3D…
           </p>
           <p className="text-xs text-slate-400">
             Satellite ground · house · panels · sun path

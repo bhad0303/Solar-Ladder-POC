@@ -40,7 +40,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
   footprint: null,
   statusMessage:
-    'Pin roof pe rakho, phir Find house — area OSM outline se aayegi (Google se nahi).',
+    'Place the pin on the roof and choose Find house — free OSM outline and Esri satellite (no paid API).',
   error: null,
   mapReady: false,
   lookingUp: false,
@@ -60,7 +60,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       scenePhase: 'idle',
       sceneError: null,
       statusMessage:
-        'Location updated. Find house dabao — OSM footprint + area milegi.',
+        'Location updated. Choose Find house to load the OSM footprint and area.',
     })
   },
 
@@ -74,7 +74,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     if (scenePhase === 'building') {
       set({
         statusMessage:
-          '3D ban raha hai… satellite + house + panels + sun path',
+          'Building 3D… satellite, house, panels, and sun path',
       })
     } else if (scenePhase === 'ready') {
       const area = get().footprint?.areaM2
@@ -85,7 +85,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       })
     } else if (scenePhase === 'error') {
       set({
-        statusMessage: '3D build fail hua.',
+        statusMessage: '3D build failed.',
         error: sceneError,
       })
     }
@@ -105,7 +105,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       scenePhase: 'idle',
       sceneError: null,
       statusMessage:
-        'OSM dhoondh rahe hain (fast mirrors, max ~10s)…',
+        'Free OSM Map API se outline… (Overpass backup)',
     })
 
     const result = await findBuildingFootprint({
@@ -120,8 +120,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         error: result.message,
         statusMessage:
           result.reason === 'not_found'
-            ? 'Footprint nahi mili — pin roof ke beech rakho (OSM outline andar).'
-            : 'Overpass busy/timeout — dubara Find house try karo.',
+            ? 'No footprint found. Place the pin in the middle of the roof, inside the OSM outline.'
+            : 'OSM servers are busy. Try Find house again in 10 seconds.',
       })
       return
     }
@@ -132,7 +132,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       footprint: { ...footprint, areaM2 },
       error: null,
       scenePhase: 'idle',
-      statusMessage: `OSM footprint (${footprint.selection}): ${areaM2.toFixed(0)} m². Satellite preload… phir Build dabao.`,
+      statusMessage: `Footprint (${footprint.source}/${footprint.selection}): ${areaM2.toFixed(0)} m². Preloading satellite, then choose Build.`,
       location: {
         ...get().location,
         timeZone: get().location.timeZone ?? 'Asia/Kolkata',
@@ -146,7 +146,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }).then(() => {
       if (get().footprint?.osmId !== footprint.osmId) return
       set({
-        statusMessage: `Ready — ${areaM2.toFixed(0)} m² (${footprint.selection}). “Build 3D house” dabao.`,
+        statusMessage: `Ready — ${areaM2.toFixed(0)} m² (${footprint.selection}). Choose “Build 3D house”.`,
       })
     })
   },
@@ -155,8 +155,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const { footprint, scenePhase } = get()
     if (!footprint) {
       set({
-        error: 'Pehle Find house se OSM footprint lo.',
-        statusMessage: '3D ke liye footprint chahiye.',
+        error: 'Find the house first to load the OSM footprint.',
+        statusMessage: 'A footprint is required for the 3D view.',
       })
       return
     }
@@ -167,7 +167,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       sceneError: null,
       error: null,
       statusMessage:
-        '3D ban raha hai… satellite ground + panels + sun path loading',
+        'Building 3D… loading satellite ground, panels, and sun path',
     })
   },
 }))

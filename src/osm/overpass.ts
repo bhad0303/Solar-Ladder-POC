@@ -1,10 +1,15 @@
 import type { LatLng } from '../types/project'
+import { fetchBuildingsViaOsmMapApi } from './osmMapApi'
 
-/** Public mirrors — raced in parallel; first OK wins. */
+/**
+ * Free Overpass mirrors (backup). Tried one-by-one — no parallel abort storm.
+ * Primary path is OSM Map API (see fetchBuildingsNear).
+ */
 const ENDPOINTS = [
+  'https://overpass.nchc.org.tw/api/interpreter', // Asia — often better for IN
   'https://lz4.overpass-api.de/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
 ]
 
 export type OverpassWay = {
@@ -18,13 +23,11 @@ type OverpassResponse = {
   elements?: OverpassWay[]
 }
 
-/** Tight radius for around: fallback (m). */
-export const OVERPASS_RADIUS_M = 25
+export const OVERPASS_RADIUS_M = 30
 
-/** Per-mirror HTTP timeout — don't wait 35s on a hung server. */
-export const OVERPASS_FETCH_MS = 10_000
+/** Per-mirror timeout (sequential). */
+export const OVERPASS_FETCH_MS = 18_000
 
-/** In-memory footprint query cache (rounded pin). */
 const wayCache = new Map<string, OverpassWay[]>()
 
 export function cacheKey(point: LatLng): string {
@@ -35,20 +38,18 @@ export function clearOverpassCache(): void {
   wayCache.clear()
 }
 
-/** Prefer buildings that contain the pin (accurate + usually small result). */
 export function buildIsInQuery(lat: number, lng: number): string {
   return `
-[out:json][timeout:8];
+[out:json][timeout:15];
 is_in(${lat},${lng})->.a;
 way(pivot.a)["building"];
 out geom;
 `.trim()
 }
 
-/** Nearby ways if is_in returns nothing (pin slightly off roof). */
 export function buildAroundQuery(lat: number, lng: number, radiusM: number): string {
   return `
-[out:json][timeout:8];
+[out:json][timeout:15];
 way["building"](around:${radiusM},${lat},${lng});
 out geom;
 `.trim()
@@ -67,63 +68,53 @@ async function postQuery(
   url: string,
   query: string,
   fetchImpl: typeof fetch,
-  signal: AbortSignal,
+  timeoutMs: number,
 ): Promise<OverpassWay[]> {
-  const res = await fetchImpl(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-    },
-    body: new URLSearchParams({ data: query }),
-    signal,
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  const json = (await res.json()) as OverpassResponse
-  return filterWays(json.elements)
-}
-
-/**
- * Race all mirrors; first successful JSON wins. Others are aborted.
- */
-export async function raceOverpassQuery(
-  query: string,
-  fetchImpl: typeof fetch = fetch,
-  timeoutMs = OVERPASS_FETCH_MS,
-): Promise<OverpassWay[]> {
-  const controllers = ENDPOINTS.map(() => new AbortController())
-  const timer = setTimeout(() => {
-    for (const c of controllers) c.abort()
-  }, timeoutMs)
-
-  const tasks = ENDPOINTS.map((url, i) =>
-    postQuery(url, query, fetchImpl, controllers[i]!.signal).then((ways) => {
-      // Abort siblings on first success
-      for (let j = 0; j < controllers.length; j++) {
-        if (j !== i) controllers[j]!.abort()
-      }
-      return ways
-    }),
-  )
-
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
   try {
-    // Promise.any: first fulfilled; ignores rejections until all fail
-    return await Promise.any(tasks)
-  } catch (err) {
-    const msg =
-      err instanceof AggregateError
-        ? err.errors.map((e) => (e instanceof Error ? e.message : String(e))).join('; ')
-        : err instanceof Error
-          ? err.message
-          : 'Overpass failed'
-    throw new Error(`Overpass timeout/fail (${timeoutMs}ms): ${msg}`)
+    const res = await fetchImpl(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+      },
+      body: new URLSearchParams({ data: query }),
+      signal: ctrl.signal,
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const json = (await res.json()) as OverpassResponse
+    return filterWays(json.elements)
   } finally {
     clearTimeout(timer)
   }
 }
 
+/** Try mirrors sequentially; first OK wins (no abort-all race). */
+export async function sequentialOverpassQuery(
+  query: string,
+  fetchImpl: typeof fetch = fetch,
+  timeoutMs = OVERPASS_FETCH_MS,
+): Promise<OverpassWay[]> {
+  const errors: string[] = []
+  for (const url of ENDPOINTS) {
+    try {
+      return await postQuery(url, query, fetchImpl, timeoutMs)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      // Normalize abort noise
+      const nice =
+        msg.includes('aborted') || msg.includes('AbortError')
+          ? `timeout ${timeoutMs}ms`
+          : msg
+      errors.push(`${new URL(url).host}: ${nice}`)
+    }
+  }
+  throw new Error(`Overpass fail — ${errors.join(' | ')}`)
+}
+
 /**
- * Fast path: is_in (contains pin) → else around:25m.
- * Results cached by ~1 m pin grid.
+ * 1) Free OSM Map API (small bbox) — preferred
+ * 2) Overpass is_in → around (sequential mirrors)
  */
 export async function fetchBuildingsNear(
   point: LatLng,
@@ -134,22 +125,37 @@ export async function fetchBuildingsNear(
   const hit = wayCache.get(key)
   if (hit) return hit
 
-  // 1) Buildings that contain the pin (best accuracy)
-  let ways = await raceOverpassQuery(
-    buildIsInQuery(point.lat, point.lng),
-    fetchImpl,
-  )
+  const errors: string[] = []
 
-  // 2) Fallback: nearby outlines if pin is slightly outside mapped polygon
-  if (ways.length === 0) {
-    ways = await raceOverpassQuery(
-      buildAroundQuery(point.lat, point.lng, radiusM),
-      fetchImpl,
+  // Primary: official OSM map extract (via Vite proxy in dev)
+  try {
+    const ways = await fetchBuildingsViaOsmMapApi(point, radiusM, fetchImpl)
+    wayCache.set(key, ways)
+    return ways
+  } catch (err) {
+    errors.push(
+      err instanceof Error ? `OSM Map: ${err.message}` : 'OSM Map failed',
     )
   }
 
-  wayCache.set(key, ways)
-  return ways
+  // Backup: Overpass
+  try {
+    let ways = await sequentialOverpassQuery(
+      buildIsInQuery(point.lat, point.lng),
+      fetchImpl,
+    )
+    if (ways.length === 0) {
+      ways = await sequentialOverpassQuery(
+        buildAroundQuery(point.lat, point.lng, radiusM),
+        fetchImpl,
+      )
+    }
+    wayCache.set(key, ways)
+    return ways
+  } catch (err) {
+    errors.push(err instanceof Error ? err.message : 'Overpass failed')
+    throw new Error(errors.join(' → '))
+  }
 }
 
 export function wayToLatLngRing(way: OverpassWay): LatLng[] {

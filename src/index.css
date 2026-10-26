@@ -4,4 +4,73 @@ body {
   margin: 0;
   min-height: 100vh;
   font-family: 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+/* Hide native scrollbar — scroll still works (wheel / trackpad) */
+.sidebar-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.ui-input {
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.ui-input:focus {
+  outline: none;
+  border-color: rgb(56 189 248);
+  box-shadow: 0 0 0 3px rgb(14 165 233 / 0.15);
+}
+
+.ui-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: rgb(226 232 240);
+  outline: none;
+}
+
+.ui-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: rgb(14 165 233);
+  border: 2px solid #fff;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.2);
+}
+
+.ui-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: rgb(14 165 233);
+  border: 2px solid #fff;
+  cursor: pointer;
+}
+
+/* Hide native number spinners — type number only, no ↑↓ arrows */
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.no-spinner {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }

@@ -101,30 +101,7 @@ export function buildSceneContent(
     shadowGen.addShadowCaster(box)
   }
 
-  // Boundary wall
-  if (project.boundaryWall) {
-    const bw = project.boundaryWall
-    const pts = bw.points
-    for (let i = 0; i < pts.length; i++) {
-      const a = pts[i]!
-      const b = pts[(i + 1) % pts.length]!
-      const len = Math.hypot(b.x - a.x, b.z - a.z)
-      const mid = new Vector3((a.x + b.x) / 2, bw.heightM / 2, (a.z + b.z) / 2)
-      const seg = MeshBuilder.CreateBox(
-        `boundary-${i}`,
-        { width: len, height: bw.heightM, depth: bw.thicknessM },
-        scene,
-      )
-      seg.position = mid
-      seg.rotation.y = Math.atan2(b.x - a.x, b.z - a.z)
-      seg.parent = root
-      seg.receiveShadows = true
-      const bm = new StandardMaterial(`boundaryMat-${i}`, scene)
-      bm.diffuseColor = new Color3(0.75, 0.72, 0.68)
-      seg.material = bm
-      shadowGen.addShadowCaster(seg)
-    }
-  }
+  // Boundary wall removed — wrong yaw made long beams look like a cross through the house.
 
   // Trees — Confirmed style: cylinder trunk + tapered 8-seg cylinder crown
   const barkMat = createBarkMaterial(scene, 'barkShared')
@@ -133,75 +110,121 @@ export function buildSceneContent(
     buildTree(scene, root, shadowGen, t, barkMat, leafMat)
   }
 
-  // Solar panels — PBR + clear coat over cell texture (Babylon skill materials)
+  // Solar panels on raised 4-pillar roof mounts (legs stay vertical; panel tilts on top)
   const cellTex = createPanelCellTexture(scene, 'panelCellShared')
   const panelMat = createPanelPbrMaterial(scene, 'panelPbrShared', cellTex)
   const frameMat = createFrameMaterial(scene, 'panelFrameMat', '#c8ccd4')
-  const legMat = new StandardMaterial('panelLegMat', scene)
-  legMat.diffuseColor = new Color3(0.4, 0.42, 0.45)
-  legMat.specularColor = new Color3(0.35, 0.35, 0.38)
+  const pillarMat = new StandardMaterial('panelPillarMat', scene)
+  pillarMat.diffuseColor = new Color3(0.55, 0.58, 0.62)
+  pillarMat.specularColor = new Color3(0.45, 0.45, 0.48)
+  const railMat = new StandardMaterial('panelRailMat', scene)
+  railMat.diffuseColor = new Color3(0.62, 0.65, 0.7)
+  railMat.specularColor = new Color3(0.4, 0.4, 0.42)
+
+  /** Clear height from roof deck to panel rack (visible 4 pillars). */
+  const PILLAR_H = 0.9
+  const PILLAR_D = 0.085
+  const roofDeckY = H + 0.16
 
   for (const panel of allPanels(project)) {
     const pw = panel.widthM * PANEL_VISUAL_SCALE
     const ph = panel.heightM * PANEL_VISUAL_SCALE
-    const group = new TransformNode(`panelGroup-${panel.id}`, scene)
-    group.parent = root
-    group.position = new Vector3(
+
+    // Mount base sits on roof — yaw only (pillars stay world-up)
+    const mount = new TransformNode(`panelMount-${panel.id}`, scene)
+    mount.parent = root
+    mount.position = new Vector3(
       panel.position.x,
-      panel.position.y,
+      roofDeckY,
       panel.position.z,
     )
-    // Azimuth from north CW; tilt from horizontal
-    group.rotation.y = (panel.azimuthDeg * Math.PI) / 180
-    group.rotation.x = (-panel.tiltDeg * Math.PI) / 180
+    mount.rotation.y = (panel.azimuthDeg * Math.PI) / 180
 
-    // Silver frame body
+    const corners: Array<[number, number]> = [
+      [-pw * 0.38, -ph * 0.36],
+      [pw * 0.38, -ph * 0.36],
+      [-pw * 0.38, ph * 0.36],
+      [pw * 0.38, ph * 0.36],
+    ]
+
+    // 4 vertical pillars from roof up to rack
+    for (const [lx, lz] of corners) {
+      const pillar = MeshBuilder.CreateCylinder(
+        `pillar-${panel.id}-${lx}-${lz}`,
+        { height: PILLAR_H, diameter: PILLAR_D, tessellation: 10 },
+        scene,
+      )
+      pillar.position = new Vector3(lx, PILLAR_H / 2, lz)
+      pillar.parent = mount
+      pillar.material = pillarMat
+      pillar.receiveShadows = true
+      shadowGen.addShadowCaster(pillar)
+
+      // Foot plate on roof
+      const foot = MeshBuilder.CreateBox(
+        `foot-${panel.id}-${lx}-${lz}`,
+        { width: 0.16, height: 0.04, depth: 0.16 },
+        scene,
+      )
+      foot.position = new Vector3(lx, 0.02, lz)
+      foot.parent = mount
+      foot.material = railMat
+      shadowGen.addShadowCaster(foot)
+    }
+
+    // Cross rails at top of pillars (rack)
+    const railY = PILLAR_H - 0.03
+    for (const z of [-ph * 0.36, ph * 0.36] as const) {
+      const rail = MeshBuilder.CreateBox(
+        `railZ-${panel.id}-${z}`,
+        { width: pw * 0.78, height: 0.045, depth: 0.05 },
+        scene,
+      )
+      rail.position = new Vector3(0, railY, z)
+      rail.parent = mount
+      rail.material = railMat
+      shadowGen.addShadowCaster(rail)
+    }
+    for (const x of [-pw * 0.38, pw * 0.38] as const) {
+      const rail = MeshBuilder.CreateBox(
+        `railX-${panel.id}-${x}`,
+        { width: 0.05, height: 0.045, depth: ph * 0.74 },
+        scene,
+      )
+      rail.position = new Vector3(x, railY, 0)
+      rail.parent = mount
+      rail.material = railMat
+      shadowGen.addShadowCaster(rail)
+    }
+
+    // Panel tilts on top of the rack (children of tilted node)
+    const tilted = new TransformNode(`panelTilt-${panel.id}`, scene)
+    tilted.parent = mount
+    tilted.position = new Vector3(0, PILLAR_H + 0.02, 0)
+    tilted.rotation.x = (-panel.tiltDeg * Math.PI) / 180
+
     const frame = MeshBuilder.CreateBox(
       `frame-${panel.id}`,
-      {
-        width: pw + 0.05,
-        height: 0.045,
-        depth: ph + 0.05,
-      },
+      { width: pw + 0.05, height: 0.05, depth: ph + 0.05 },
       scene,
     )
-    frame.parent = group
+    frame.parent = tilted
     frame.material = frameMat
     frame.receiveShadows = true
     shadowGen.addShadowCaster(frame)
 
-    // Cell face as plane so DynamicTexture UVs read clearly
     const face = MeshBuilder.CreatePlane(
       `panel-${panel.id}`,
       { width: pw, height: ph },
       scene,
     )
     face.rotation.x = Math.PI / 2
-    face.position.y = 0.028
-    face.parent = group
+    face.position.y = 0.03
+    face.parent = tilted
     face.material = panelMat
     face.receiveShadows = true
     shadowGen.addShadowCaster(face)
     panelMeshes.set(panel.id, face)
-
-    // Mount legs
-    const legH = 0.28
-    for (const [lx, lz] of [
-      [-pw * 0.35, -ph * 0.32],
-      [pw * 0.35, -ph * 0.32],
-      [-pw * 0.35, ph * 0.32],
-      [pw * 0.35, ph * 0.32],
-    ] as const) {
-      const leg = MeshBuilder.CreateCylinder(
-        `leg-${panel.id}-${lx}-${lz}`,
-        { height: legH, diameter: 0.04, tessellation: 8 },
-        scene,
-      )
-      leg.position = new Vector3(lx, -legH / 2 - 0.01, lz)
-      leg.parent = group
-      leg.material = legMat
-      shadowGen.addShadowCaster(leg)
-    }
   }
 
   if (opts.showLabels) {
@@ -422,11 +445,15 @@ export type SunPathOverlay = {
   labels: Mesh[]
 }
 
-function sunPoint(dir: { x: number; y: number; z: number }, radiusM: number) {
+function sunPoint(
+  dir: { x: number; y: number; z: number },
+  radiusM: number,
+  origin: Vector3,
+) {
   return new Vector3(
-    dir.x * radiusM,
-    Math.max(3.5, dir.y * radiusM),
-    dir.z * radiusM,
+    origin.x + dir.x * radiusM,
+    origin.y + Math.max(3.2, dir.y * radiusM),
+    origin.z + dir.z * radiusM,
   )
 }
 
@@ -445,8 +472,10 @@ export function updateSunVisuals(args: {
     sunriseSun: SunDirection
     sunsetSun: SunDirection
   } | null
-  /** Arc radius in meters — keep near the house (~18–24), not sky-far. */
+  /** Arc radius in meters — keep near the house, not sky-far. */
   radiusM: number
+  /** Center of the arc (usually the 3D house). */
+  origin?: Vector3
 }): SunPathOverlay {
   const {
     dirLight,
@@ -458,18 +487,19 @@ export function updateSunVisuals(args: {
     radiusM,
     scene,
   } = args
+  const origin = args.origin ?? Vector3.Zero()
   dirLight.direction = new Vector3(-sun.dir.x, -sun.dir.y, -sun.dir.z)
   dirLight.intensity = sun.isUp ? 1.25 : 0.12
   // Light stays farther for shadow quality; marker/path use radiusM
   const lightR = Math.max(radiusM * 1.6, 28)
   dirLight.position = new Vector3(
-    sun.dir.x * lightR,
-    Math.max(8, sun.dir.y * lightR),
-    sun.dir.z * lightR,
+    origin.x + sun.dir.x * lightR,
+    origin.y + Math.max(8, sun.dir.y * lightR),
+    origin.z + sun.dir.z * lightR,
   )
 
   if (sunMarker) {
-    sunMarker.position = sunPoint(sun.dir, radiusM)
+    sunMarker.position = sunPoint(sun.dir, radiusM, origin)
     sunMarker.setEnabled(sun.isUp)
   }
 
@@ -479,7 +509,7 @@ export function updateSunVisuals(args: {
   const labels: Mesh[] = []
   if (pathSamples.length < 2) return { path: null, labels }
 
-  const points = pathSamples.map((s) => sunPoint(s.dir, radiusM))
+  const points = pathSamples.map((s) => sunPoint(s.dir, radiusM, origin))
   const path = MeshBuilder.CreateLines(
     'sunPath',
     {
@@ -492,7 +522,7 @@ export function updateSunVisuals(args: {
 
   // Hour numerals along the arc (Solar Ladder style)
   for (const mark of hourMarks) {
-    const p = sunPoint(mark.sun.dir, radiusM * 1.02)
+    const p = sunPoint(mark.sun.dir, radiusM * 1.02, origin)
     const lbl = createWorldLabel(
       scene,
       `sunHour-${mark.hour}`,
@@ -510,7 +540,7 @@ export function updateSunVisuals(args: {
       daylight.sunriseLabel,
       SUNRISE_LABEL,
     )
-    rise.position = sunPoint(daylight.sunriseSun.dir, radiusM * 1.05)
+    rise.position = sunPoint(daylight.sunriseSun.dir, radiusM * 1.05, origin)
     labels.push(rise)
     const set = createWorldLabel(
       scene,
@@ -518,7 +548,7 @@ export function updateSunVisuals(args: {
       daylight.sunsetLabel,
       SUNRISE_LABEL,
     )
-    set.position = sunPoint(daylight.sunsetSun.dir, radiusM * 1.05)
+    set.position = sunPoint(daylight.sunsetSun.dir, radiusM * 1.05, origin)
     labels.push(set)
   }
 

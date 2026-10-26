@@ -1,7 +1,7 @@
 {
   "id": "poc-mumbai-demo",
-  "name": "Demo Residence",
-  "subtitle": "POC-001 (Residential) Mumbai",
+  "name": "Coastal Red Roof",
+  "subtitle": "3D house on red-roof home (Unsplash aerial)",
   "location": {
     "lat": 19.076,
     "lon": 72.8777,
@@ -9,69 +9,69 @@
     "northOffsetDeg": 0
   },
   "imagery": {
-    "file": "/assets/site-satellite.jpg",
-    "widthMeters": 80,
-    "heightMeters": 80,
+    "file": "/assets/site-satellite.jpg?v=fit3",
+    "widthMeters": 36,
+    "heightMeters": 36,
     "northUp": true,
     "centerLat": 19.076,
     "centerLon": 72.8777,
     "rotationDeg": 0
   },
-  "buildingOffsetMeters": { "x": 0, "z": 0 },
+  "buildingOffsetMeters": {
+    "x": 2.5,
+    "z": 1.0
+  },
   "building": {
     "id": "b1",
     "polygon": [
-      { "x": -8, "z": -6 },
-      { "x": 8, "z": -6 },
-      { "x": 8, "z": 6 },
-      { "x": -8, "z": 6 }
+      {
+        "x": -5,
+        "z": -4
+      },
+      {
+        "x": 5,
+        "z": -4
+      },
+      {
+        "x": 5,
+        "z": 4
+      },
+      {
+        "x": -5,
+        "z": 4
+      }
     ],
     "height": 3.2,
     "wallColors": {
-      "N": "#c8c4bc",
-      "E": "#d4d0c8",
-      "S": "#bdb8b0",
-      "W": "#cbc7bf"
+      "N": "#c9b8a8",
+      "E": "#d2c4b4",
+      "S": "#b9a898",
+      "W": "#cfc0b0"
     }
   },
   "roofItems": [
     {
-      "id": "tank1",
-      "kind": "tank",
-      "position": { "x": -5.5, "y": 3.2, "z": 3.5 },
-      "radiusM": 0.55,
-      "heightM": 1.35
-    },
-    {
-      "id": "tank2",
-      "kind": "tank",
-      "position": { "x": -3.8, "y": 3.2, "z": 3.5 },
-      "radiusM": 0.55,
-      "heightM": 1.35
-    },
-    {
-      "id": "mumty1",
-      "kind": "mumty",
-      "position": { "x": 5.2, "y": 3.2, "z": 2.8 },
-      "widthM": 2.4,
-      "depthM": 2.2,
-      "heightM": 2.1,
-      "rotationDeg": 0
-    },
-    {
       "id": "vent1",
       "kind": "vent",
-      "position": { "x": 0.5, "y": 3.2, "z": 4.2 },
+      "position": {
+        "x": 0.14,
+        "y": 3.2,
+        "z": 2.33
+      },
       "radiusM": 0.08,
-      "heightM": 0.55
+      "heightM": 0.45
     },
     {
       "id": "ac1",
       "kind": "ac",
-      "position": { "x": 2.5, "y": 3.25, "z": 4.5 },
-      "widthM": 0.9,
-      "depthM": 0.45,
-      "heightM": 0.55
+      "position": {
+        "x": 2.5,
+        "y": 3.25,
+        "z": 2.55
+      },
+      "widthM": 0.85,
+      "depthM": 0.4,
+      "heightM": 0.5
     }
   ],
   "zones": [
@@ -82,226 +82,174 @@
         {
           "id": "p1",
           "zoneId": "zone-1",
-          "widthM": 1.7,
+          "widthM": 1.65,
           "heightM": 1.0,
           "ratedPowerW": 540,
-          "tiltDeg": 15,
+          "tiltDeg": 18,
           "azimuthDeg": 180,
-          "position": { "x": -5.5, "y": 3.35, "z": -2.2 }
+          "position": {
+            "x": -3.21,
+            "y": 3.4000000000000004,
+            "z": -2.04
+          }
         },
         {
           "id": "p2",
           "zoneId": "zone-1",
-          "widthM": 1.7,
+          "widthM": 1.65,
           "heightM": 1.0,
           "ratedPowerW": 540,
-          "tiltDeg": 15,
+          "tiltDeg": 18,
           "azimuthDeg": 180,
-          "position": { "x": -3.5, "y": 3.35, "z": -2.2 }
+          "position": {
+            "x": -1.79,
+            "y": 3.4000000000000004,
+            "z": -2.04
+          }
         },
         {
           "id": "p3",
           "zoneId": "zone-1",
-          "widthM": 1.7,
+          "widthM": 1.65,
           "heightM": 1.0,
           "ratedPowerW": 540,
-          "tiltDeg": 15,
+          "tiltDeg": 18,
           "azimuthDeg": 180,
-          "position": { "x": -1.5, "y": 3.35, "z": -2.2 }
+          "position": {
+            "x": -0.36,
+            "y": 3.4000000000000004,
+            "z": -2.04
+          }
         },
         {
           "id": "p4",
           "zoneId": "zone-1",
-          "widthM": 1.7,
+          "widthM": 1.65,
           "heightM": 1.0,
           "ratedPowerW": 540,
-          "tiltDeg": 15,
+          "tiltDeg": 18,
           "azimuthDeg": 180,
-          "position": { "x": 0.5, "y": 3.35, "z": -2.2 }
+          "position": {
+            "x": 1.07,
+            "y": 3.4000000000000004,
+            "z": -2.04
+          }
         },
         {
           "id": "p5",
           "zoneId": "zone-1",
-          "widthM": 1.7,
+          "widthM": 1.65,
           "heightM": 1.0,
           "ratedPowerW": 540,
-          "tiltDeg": 15,
+          "tiltDeg": 18,
           "azimuthDeg": 180,
-          "position": { "x": 2.5, "y": 3.35, "z": -2.2 }
+          "position": {
+            "x": -3.21,
+            "y": 3.4000000000000004,
+            "z": -0.65
+          }
         },
         {
           "id": "p6",
           "zoneId": "zone-1",
-          "widthM": 1.7,
+          "widthM": 1.65,
           "heightM": 1.0,
           "ratedPowerW": 540,
-          "tiltDeg": 15,
+          "tiltDeg": 18,
           "azimuthDeg": 180,
-          "position": { "x": -5.5, "y": 3.35, "z": -0.6 }
+          "position": {
+            "x": -1.79,
+            "y": 3.4000000000000004,
+            "z": -0.65
+          }
         },
         {
           "id": "p7",
           "zoneId": "zone-1",
-          "widthM": 1.7,
+          "widthM": 1.65,
           "heightM": 1.0,
           "ratedPowerW": 540,
-          "tiltDeg": 15,
+          "tiltDeg": 18,
           "azimuthDeg": 180,
-          "position": { "x": -3.5, "y": 3.35, "z": -0.6 }
+          "position": {
+            "x": -0.36,
+            "y": 3.4000000000000004,
+            "z": -0.65
+          }
         },
         {
           "id": "p8",
           "zoneId": "zone-1",
-          "widthM": 1.7,
+          "widthM": 1.65,
           "heightM": 1.0,
           "ratedPowerW": 540,
-          "tiltDeg": 15,
+          "tiltDeg": 18,
           "azimuthDeg": 180,
-          "position": { "x": -1.5, "y": 3.35, "z": -0.6 }
+          "position": {
+            "x": 1.07,
+            "y": 3.4000000000000004,
+            "z": -0.65
+          }
         },
         {
           "id": "p9",
           "zoneId": "zone-1",
-          "widthM": 1.7,
+          "widthM": 1.65,
           "heightM": 1.0,
           "ratedPowerW": 540,
-          "tiltDeg": 15,
+          "tiltDeg": 18,
           "azimuthDeg": 180,
-          "position": { "x": 0.5, "y": 3.35, "z": -0.6 }
+          "position": {
+            "x": -3.21,
+            "y": 3.4000000000000004,
+            "z": 0.73
+          }
         },
         {
           "id": "p10",
           "zoneId": "zone-1",
-          "widthM": 1.7,
+          "widthM": 1.65,
           "heightM": 1.0,
           "ratedPowerW": 540,
-          "tiltDeg": 15,
+          "tiltDeg": 18,
           "azimuthDeg": 180,
-          "position": { "x": 2.5, "y": 3.35, "z": -0.6 }
+          "position": {
+            "x": -1.79,
+            "y": 3.4000000000000004,
+            "z": 0.73
+          }
         },
         {
           "id": "p11",
           "zoneId": "zone-1",
-          "widthM": 1.7,
+          "widthM": 1.65,
           "heightM": 1.0,
           "ratedPowerW": 540,
           "tiltDeg": 18,
           "azimuthDeg": 180,
-          "position": { "x": 5.0, "y": 5.45, "z": 2.6 }
+          "position": {
+            "x": -0.36,
+            "y": 3.4000000000000004,
+            "z": 0.73
+          }
         },
         {
           "id": "p12",
           "zoneId": "zone-1",
-          "widthM": 1.7,
+          "widthM": 1.65,
           "heightM": 1.0,
           "ratedPowerW": 540,
           "tiltDeg": 18,
           "azimuthDeg": 180,
-          "position": { "x": 5.0, "y": 5.45, "z": 3.4 }
-        },
-        {
-          "id": "p13",
-          "zoneId": "zone-1",
-          "widthM": 1.7,
-          "heightM": 1.0,
-          "ratedPowerW": 540,
-          "tiltDeg": 15,
-          "azimuthDeg": 180,
-          "position": { "x": -5.5, "y": 3.35, "z": 1.0 }
-        },
-        {
-          "id": "p14",
-          "zoneId": "zone-1",
-          "widthM": 1.7,
-          "heightM": 1.0,
-          "ratedPowerW": 540,
-          "tiltDeg": 15,
-          "azimuthDeg": 180,
-          "position": { "x": -3.5, "y": 3.35, "z": 1.0 }
-        },
-        {
-          "id": "p15",
-          "zoneId": "zone-1",
-          "widthM": 1.7,
-          "heightM": 1.0,
-          "ratedPowerW": 540,
-          "tiltDeg": 15,
-          "azimuthDeg": 180,
-          "position": { "x": -1.5, "y": 3.35, "z": 1.0 }
+          "position": {
+            "x": 1.07,
+            "y": 3.4000000000000004,
+            "z": 0.73
+          }
         }
       ]
     }
   ],
-  "trees": [
-    {
-      "id": "t1",
-      "position": { "x": -14, "y": 0, "z": 6 },
-      "trunkHeightM": 2.8,
-      "trunkRadiusM": 0.28,
-      "canopyRadiusM": 2.4,
-      "canopyHeightM": 3.6
-    },
-    {
-      "id": "t2",
-      "position": { "x": 13, "y": 0, "z": -7 },
-      "trunkHeightM": 2.4,
-      "trunkRadiusM": 0.24,
-      "canopyRadiusM": 2.1,
-      "canopyHeightM": 3.2
-    },
-    {
-      "id": "t3",
-      "position": { "x": -16, "y": 0, "z": -8 },
-      "trunkHeightM": 2.2,
-      "trunkRadiusM": 0.22,
-      "canopyRadiusM": 1.9,
-      "canopyHeightM": 2.8
-    },
-    {
-      "id": "t4",
-      "position": { "x": 15, "y": 0, "z": 8 },
-      "trunkHeightM": 2.6,
-      "trunkRadiusM": 0.26,
-      "canopyRadiusM": 2.2,
-      "canopyHeightM": 3.4
-    }
-  ],
-  "neighbours": [
-    {
-      "id": "n1",
-      "height": 6.5,
-      "polygon": [
-        { "x": -28, "z": -4 },
-        { "x": -20, "z": -4 },
-        { "x": -20, "z": 6 },
-        { "x": -28, "z": 6 }
-      ]
-    },
-    {
-      "id": "n2",
-      "height": 5.0,
-      "polygon": [
-        { "x": 18, "z": 10 },
-        { "x": 28, "z": 10 },
-        { "x": 28, "z": 18 },
-        { "x": 18, "z": 18 }
-      ]
-    }
-  ],
-  "boundaryWall": {
-    "heightM": 1.6,
-    "thicknessM": 0.2,
-    "points": [
-      { "x": -18, "z": -12 },
-      { "x": 18, "z": -12 },
-      { "x": 18, "z": 12 },
-      { "x": -18, "z": 12 }
-    ]
-  },
-  "roadStrip": {
-    "center": { "x": -30, "z": 0 },
-    "widthM": 6,
-    "lengthM": 50,
-    "rotationDeg": 0
-  }
+  "trees": [],
+  "neighbours": []
 }

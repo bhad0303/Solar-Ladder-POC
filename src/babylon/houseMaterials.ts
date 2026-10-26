@@ -77,26 +77,13 @@ export function createRoofMembraneMaterial(
   )
   const ctx = tex.getContext() as CanvasRenderingContext2D
   noiseFill(ctx, 512, 512, '#e8e4dc', '#c8c2b8', 2500)
-  // Membrane seams
-  ctx.strokeStyle = 'rgba(120,110,100,0.25)'
-  ctx.lineWidth = 2
-  for (let x = 64; x < 512; x += 64) {
-    ctx.beginPath()
-    ctx.moveTo(x, 0)
-    ctx.lineTo(x, 512)
-    ctx.stroke()
-  }
-  for (let y = 64; y < 512; y += 96) {
-    ctx.beginPath()
-    ctx.moveTo(0, y)
-    ctx.lineTo(512, y)
-    ctx.stroke()
-  }
+  // Soft membrane tint only — hard seam grid looked like a cross overlay on the roof
   tex.update()
   const mat = new StandardMaterial(name, scene)
   mat.diffuseTexture = tex
-  ;(tex as Texture).uScale = 4
-  ;(tex as Texture).vScale = 3
+  ;(tex as Texture).uScale = 2
+  ;(tex as Texture).vScale = 2
+
   mat.specularColor = new Color3(0.22, 0.22, 0.2)
   mat.specularPower = 48
   mat.emissiveColor = new Color3(0.06, 0.06, 0.05)

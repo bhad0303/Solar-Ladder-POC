@@ -87,7 +87,6 @@ export function selectBuildingWay(
     return { way: containing[0]!.way, selection: 'contains' }
   }
   if (containing.length > 1) {
-    // Smallest area = most specific building (not a huge campus outline)
     containing.sort(
       (a, b) =>
         polygonAreaM2(ringToLocal(a.ring, pin)) -
@@ -96,7 +95,6 @@ export function selectBuildingWay(
     return { way: containing[0]!.way, selection: 'contains' }
   }
 
-  // Strict nearest — only if almost touching (reduces wrong-building picks)
   let best: { way: OverpassWay; dist: number } | null = null
   for (const c of candidates) {
     const dist = distanceToPolygonEdgeM(pin, c.ring)
@@ -107,6 +105,7 @@ export function selectBuildingWay(
   return { way: best.way, selection: 'nearest' }
 }
 
+/** Free OSM Overpass only — no paid Google Solar / Maps. */
 export async function findBuildingFootprint(
   pin: LatLng,
   fetchImpl?: typeof fetch,
@@ -119,8 +118,7 @@ export async function findBuildingFootprint(
         ok: false,
         reason: 'not_found',
         message:
-          `Pin roof ke bilkul beech me rakho (OSM outline andar). ` +
-          `Nearest sirf ${MAX_NEAREST_EDGE_M}m tak allow hai — galat neighbour avoid karne ke liye.`,
+          'No building outline was found near this pin. Place the pin in the middle of the roof, or try an OSM-mapped area.',
       }
     }
     const footprint = toFootprint(picked.way, pin, picked.selection)
@@ -128,19 +126,22 @@ export async function findBuildingFootprint(
       return {
         ok: false,
         reason: 'not_found',
-        message: 'OSM way geometry incomplete thi.',
+        message: 'OSM way geometry is incomplete.',
       }
     }
-    const areaM2 = polygonAreaM2(footprint.polygonLocal)
-    return { ok: true, footprint, areaM2 }
+    return {
+      ok: true,
+      footprint,
+      areaM2: polygonAreaM2(footprint.polygonLocal),
+    }
   } catch (err) {
     return {
       ok: false,
       reason: 'overpass_error',
       message:
         err instanceof Error
-          ? `Overpass: ${err.message}`
-          : 'Overpass request failed',
+          ? `OSM Overpass: ${err.message}`
+          : 'OSM Overpass failed',
     }
   }
 }

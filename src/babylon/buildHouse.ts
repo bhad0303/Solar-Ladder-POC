@@ -4,7 +4,6 @@
  */
 import {
   Color3,
-  Mesh,
   MeshBuilder,
   Scene,
   ShadowGenerator,
@@ -12,8 +11,6 @@ import {
   TransformNode,
   Vector3,
 } from '@babylonjs/core'
-import '@babylonjs/core/Rendering/edgesRenderer'
-import earcut from 'earcut'
 import type { Building, RoofItem } from '../data/types'
 import {
   createConcreteMaterial,
@@ -59,21 +56,16 @@ export function buildHouse(
   const doorMat = createFrameMaterial(scene, 'doorMat', '#4a5568')
   const trimMat = createConcreteMaterial(scene, 'corniceMat', '#c8c4bc')
 
-  // Main mass
-  const shape = poly.map((p) => new Vector3(p.x, 0, p.z))
-  const body = MeshBuilder.ExtrudePolygon(
+  // Main mass (box — ExtrudePolygon diagonals looked like a cross on the roof)
+  const body = MeshBuilder.CreateBox(
     'houseBody',
-    { shape, depth: H, sideOrientation: Mesh.DOUBLESIDE },
+    { width, height: H, depth },
     scene,
-    earcut,
   )
-  body.position.y = H
+  body.position = new Vector3(cx, H / 2, cz)
   body.parent = houseRoot
   body.receiveShadows = true
   body.material = wallMat
-  body.enableEdgesRendering(0.95)
-  body.edgesWidth = 1.2
-  body.edgesColor = Color3.FromHexString('#6a655e').toColor4(0.7)
   shadowGen.addShadowCaster(body)
 
   // Plinth
@@ -98,9 +90,6 @@ export function buildHouse(
   roof.parent = houseRoot
   roof.receiveShadows = true
   roof.material = roofMat
-  roof.enableEdgesRendering(0.95)
-  roof.edgesWidth = 1.0
-  roof.edgesColor = Color3.FromHexString('#9a948c').toColor4(0.5)
   shadowGen.addShadowCaster(roof)
 
   // Cornice ledge under roof edge
@@ -115,48 +104,39 @@ export function buildHouse(
   cornice.receiveShadows = true
   shadowGen.addShadowCaster(cornice)
 
-  // Parapet with coping caps
+  // Parapet — axis-aligned boxes only (no yaw; wrong atan2 used to draw a cross)
   const parapetH = 0.5
   const parapetT = 0.2
-  for (let i = 0; i < poly.length; i++) {
-    const a = poly[i]!
-    const b = poly[(i + 1) % poly.length]!
-    const len = Math.hypot(b.x - a.x, b.z - a.z)
-    const mid = new Vector3(
-      (a.x + b.x) / 2,
-      H + 0.14 + parapetH / 2,
-      (a.z + b.z) / 2,
-    )
-    const yaw = Math.atan2(b.x - a.x, b.z - a.z)
+  const parapetY = H + 0.14 + parapetH / 2
+  const copingY = H + 0.14 + parapetH + 0.03
+  const ns = [
+    { name: 'N', x: cx, z: minZ, w: width, d: parapetT },
+    { name: 'S', x: cx, z: maxZ, w: width, d: parapetT },
+    { name: 'E', x: maxX, z: cz, w: parapetT, d: depth },
+    { name: 'W', x: minX, z: cz, w: parapetT, d: depth },
+  ]
+  for (const p of ns) {
     const seg = MeshBuilder.CreateBox(
-      `parapet-${i}`,
-      { width: len, height: parapetH, depth: parapetT },
+      `parapet-${p.name}`,
+      { width: p.w, height: parapetH, depth: p.d },
       scene,
     )
-    seg.position = mid
-    seg.rotation.y = yaw
+    seg.position = new Vector3(p.x, parapetY, p.z)
     seg.parent = houseRoot
     seg.material = parapetMat
     seg.receiveShadows = true
     shadowGen.addShadowCaster(seg)
 
     const coping = MeshBuilder.CreateBox(
-      `coping-${i}`,
-      { width: len + 0.05, height: 0.06, depth: parapetT + 0.08 },
+      `coping-${p.name}`,
+      { width: p.w + 0.05, height: 0.06, depth: p.d + 0.08 },
       scene,
     )
-    coping.position = new Vector3(mid.x, H + 0.14 + parapetH + 0.03, mid.z)
-    coping.rotation.y = yaw
+    coping.position = new Vector3(p.x, copingY, p.z)
     coping.parent = houseRoot
     coping.material = trimMat
     shadowGen.addShadowCaster(coping)
   }
-
-  // Per-side soft tint skins
-  addSkin(scene, houseRoot, shadowGen, wallMat, 'skinN', cx, H * 0.52, minZ - 0.015, width * 0.96, H * 0.88, 0.03)
-  addSkin(scene, houseRoot, shadowGen, wallMat, 'skinS', cx, H * 0.52, maxZ + 0.015, width * 0.96, H * 0.88, 0.03)
-  addSkin(scene, houseRoot, shadowGen, wallMat, 'skinE', maxX + 0.015, H * 0.52, cz, 0.03, H * 0.88, depth * 0.96)
-  addSkin(scene, houseRoot, shadowGen, wallMat, 'skinW', minX - 0.015, H * 0.52, cz, 0.03, H * 0.88, depth * 0.96)
 
   // Windows with frames (east / west / south)
   addFramedWindow(scene, houseRoot, shadowGen, glassMat, frameMat, maxX + 0.04, 1.45, cz - 2.2, 0.06, 1.15, 1.35)
@@ -191,27 +171,6 @@ export function buildHouse(
   for (const item of roofItems) {
     buildRoofItem(scene, houseRoot, shadowGen, item, frameMat)
   }
-}
-
-function addSkin(
-  scene: Scene,
-  parent: TransformNode,
-  shadowGen: ShadowGenerator,
-  mat: StandardMaterial,
-  name: string,
-  x: number,
-  y: number,
-  z: number,
-  w: number,
-  h: number,
-  d: number,
-): void {
-  const m = MeshBuilder.CreateBox(name, { width: w, height: h, depth: d }, scene)
-  m.position = new Vector3(x, y, z)
-  m.parent = parent
-  m.material = mat
-  m.receiveShadows = true
-  shadowGen.addShadowCaster(m)
 }
 
 function addFramedWindow(

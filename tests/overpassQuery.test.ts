@@ -10,7 +10,7 @@ describe('overpass queries', () => {
     const q = buildIsInQuery(19.076, 72.878)
     expect(q).toContain('is_in(19.076,72.878)')
     expect(q).toContain('way(pivot.a)["building"]')
-    expect(q).toContain('timeout:8')
+    expect(q).toContain('timeout:15')
   })
 
   it('builds tight around query as fallback', () => {

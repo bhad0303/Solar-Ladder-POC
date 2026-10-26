@@ -154,13 +154,14 @@ export function formValuesToSpec(
     widthM: lengthDisplayToM(data.width, data.widthUnit),
     heightM: lengthDisplayToM(data.height, data.heightUnit),
     ratedPowerW: powerDisplayToW(data.ratedPower, data.powerUnit),
-    // Portrait only — orientation control removed from the setup form
+    // Portrait / tilt / azimuth / setback — fixed defaults (controls removed from UI)
     orientation: 'portrait',
-    tiltDeg: data.tiltDeg,
-    azimuthDeg: data.azimuthDeg,
-    setbackM: data.setbackM,
+    tiltDeg: DEFAULT_PANEL_SPEC.tiltDeg,
+    azimuthDeg: DEFAULT_PANEL_SPEC.azimuthDeg,
+    setbackM: DEFAULT_PANEL_SPEC.setbackM,
     panelGapM: data.panelGapM,
-    rowSpacingM: data.rowSpacingM,
+    // Row spacing control removed from UI — keep default
+    rowSpacingM: DEFAULT_PANEL_SPEC.rowSpacingM,
     moduleType: data.moduleType,
     systemLossPercent: data.systemLossPercent,
     obstacleClearanceM: DEFAULT_PANEL_SPEC.obstacleClearanceM,

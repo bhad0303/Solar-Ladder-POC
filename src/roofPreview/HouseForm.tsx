@@ -225,7 +225,7 @@ export function HouseForm() {
   const sunM = String(sunMinuteOfDay % 60).padStart(2, '0')
 
   return (
-    <div className="sidebar-scroll flex h-full min-h-0 flex-col gap-3 overflow-y-auto overscroll-y-contain px-4 py-4 text-slate-800">
+    <div className="sidebar-scroll flex h-full min-h-0 flex-col gap-3 overflow-y-auto overscroll-y-contain overflow-x-hidden px-4 py-4 text-slate-800 [overflow-anchor:none]">
       <header className="shrink-0 pb-1">
         <h1 className="text-lg font-semibold tracking-tight text-slate-900">
           Solar Roof Preview
@@ -453,8 +453,6 @@ export function HouseForm() {
         />
       </Section>
 
-      <SolarPanelSetupForm />
-
       <Section
         title="Layout tools"
         hint={`${panels.length} panels · ${totalKw().toFixed(2)} kW (applied)`}
@@ -496,6 +494,8 @@ export function HouseForm() {
           </button>
         </div>
       </Section>
+
+      <SolarPanelSetupForm />
 
       <Section
         title="Roof obstacles"

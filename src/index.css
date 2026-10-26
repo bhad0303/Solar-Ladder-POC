@@ -4,8 +4,13 @@ html,
 body,
 #root {
   height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  width: 100%;
   margin: 0;
+  padding: 0;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
@@ -13,6 +18,23 @@ body {
   -webkit-font-smoothing: antialiased;
   background: #f8fafc;
   color: #0f172a;
+  position: fixed;
+  inset: 0;
+}
+
+#root {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* Babylon sets canvas width/height attrs — never let that expand the page */
+.roof-preview-shell canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 /* Hide native scrollbar — scroll still works (wheel / trackpad) */

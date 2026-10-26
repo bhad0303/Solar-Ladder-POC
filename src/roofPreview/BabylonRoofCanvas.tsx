@@ -112,8 +112,12 @@ export function BabylonRoofCanvas() {
   }, [sunMinuteOfDay, sunDayOfYear, latitude, longitude])
 
   return (
-    <div className="relative h-full w-full bg-slate-900">
-      <canvas ref={canvasRef} className="h-full w-full touch-none outline-none" />
+    <div className="absolute inset-0 overflow-hidden bg-slate-900">
+      <canvas
+        ref={canvasRef}
+        className="block h-full w-full touch-none outline-none"
+        style={{ width: '100%', height: '100%' }}
+      />
       <div className="pointer-events-none absolute left-3 top-3 rounded-full bg-black/60 px-3 py-1 text-xs text-slate-200">
         Drag to orbit · Scroll to zoom · Drag panels / obstacles on roof
       </div>

@@ -71,7 +71,9 @@ export function SoftNumberInput({
       data-step={step}
       data-min={min}
       data-max={max}
-      onFocus={() => setFocused(true)}
+      onFocus={() => {
+        setFocused(true)
+      }}
       onChange={(e) => {
         const raw = e.target.value
         if (raw !== '' && !/^-?\d*\.?\d*$/.test(raw)) return

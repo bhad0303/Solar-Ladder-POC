@@ -6,14 +6,18 @@ This guide is for everyday users. It explains what the app does and how to use e
 
 ## What this app is for
 
-**Solar Roof Preview** lets you build a simple 3D picture of a house roof and place solar panels on it. You can:
+**Solar Roof Preview** lets you build a simple 3D picture of a house roof, place solar panels, and see a **rough energy estimate**.
+
+You can:
 
 - Choose the house shape and size  
 - Add roof items (water tank, stair room, chimney, AC unit)  
 - Place solar panels by hand or fill the roof automatically  
+- Choose module type (how panels look) and layout settings  
 - Move the sun through the day to see light and shadow  
+- Read **System Summary** under the 3D view (capacity and estimated kWh)
 
-The left side of the screen is the **control panel**. The right side is the **3D view** of the house.
+The left side of the screen is the **control panel** (scroll this list). The right side is the **3D view**, with **System Summary** and **Energy Estimate** in a strip below it (scroll that strip only — the whole page should not scroll).
 
 ---
 
@@ -33,7 +37,7 @@ A short tip at the top of the 3D view reminds you of these controls.
 
 At the top of the control panel, choose **Meters** or **Feet**.
 
-All size fields (house size, panel size, spacing, and so on) will show numbers in the unit you pick. Pick the one you are comfortable with.
+All size fields (house size, spacing, and so on) will show numbers in the unit you pick.
 
 ---
 
@@ -62,6 +66,8 @@ Depending on the shape, you will see fields such as:
 
 Change a number and the house in the 3D view updates right away.
 
+**Tip — typing numbers:** You can clear a field and type a new value (for example change `1` to `7`). Press **Enter** or click outside the field to save the number.
+
 ---
 
 ## Massing (building height and roof)
@@ -74,6 +80,65 @@ Change a number and the house in the 3D view updates right away.
 | **Roof overhang** | How far the roof edge sticks out past the walls. |
 
 **Note on gable roofs:** On a gable roof you can only add a **chimney** or **AC unit**. Water tank and stair room are turned off for that roof type.
+
+---
+
+## Solar Panel Setup
+
+This section sits near the top of the sidebar (after Massing). Use it to set how panels look and how they are laid out.
+
+### Common settings (top)
+
+| Control | What it does |
+|---------|----------------|
+| **Module type** | **Standard** (blue cell grid), **Premium** (near-black), or **Thin-film** (smooth purple-teal). Changing this updates the **look of the panels already on the roof** right away. It does **not** add or remove panels. |
+| **Panel tilt (°)** | How much panels tilt up from flat (0–90). |
+| **Panel azimuth (°)** | Compass direction the panel faces: **0° North**, **90° East**, **180° South**, **270° West**. |
+| **Roof edge setback (m)** | Empty border from the roof edge where panels should not sit. |
+| **Gap between panels (m)** | Space between panels side by side. |
+| **Row spacing (m)** | Space between rows of panels. |
+
+Then use the buttons:
+
+| Button | What it does |
+|--------|----------------|
+| **Apply Layout** | Saves your draft settings. If panels are already placed, it **keeps the same number and positions** and updates size/tilt/etc. on those panels. If there are **no** panels yet, it places a first automatic layout. |
+| **Reset Defaults** | Puts the form back to default numbers. |
+| **Cancel Changes** | Puts the form back to the last applied settings. |
+
+### Advanced (size, power, losses)
+
+Open **Advanced (size, power, losses)** for less-used fields:
+
+| Control | What it does |
+|---------|----------------|
+| **Panel model name** | Optional label (for your notes). |
+| **Panel width / height** | Physical size of one module. Switch unit with **m** or **mm**. |
+| **Rated power per panel** | Power of one module (for example **540 W**). Switch **W** / **kW**. |
+| **System losses (%)** | Extra losses (inverter, wiring, dirt, etc.). Often around **14%**. |
+
+**Capacity:** Total system kW is always **number of panels × rated power per panel**. You do not type total kW yourself.
+
+**Important:**
+
+- Most draft fields do **not** rebuild the roof until **Apply Layout** (module type look is the main exception).  
+- To fill the whole roof again from scratch, use **Layout tools → Auto-fill** (below).
+
+---
+
+## Layout tools
+
+| Control | What it does |
+|---------|----------------|
+| **Panel count** | Shows how many panels are on the roof. You can type a new count (within limits). |
+| **Auto-fill** | Rebuilds a full automatic layout from the **last applied** settings (panel count may change). |
+| **+ Panel** | Adds one more panel if there is space. |
+| **Delete** | Removes the panel you selected in the 3D view. |
+| **Clear** | Removes all panels. |
+
+### Moving panels
+
+Click a panel to select it (blue outline), then drag it on the roof. If you drop it in a bad place, it returns to the last good spot and a short message may appear.
 
 ---
 
@@ -90,74 +155,71 @@ Use the buttons:
 - **+ Chimney**  
 - **+ AC unit**  
 
-The item appears on the roof. You can **drag** it to a new spot. If the spot is not allowed (for example, too close to the edge or overlapping something badly), it will snap back.
+Drag the item on the roof. If the spot is not allowed, it snaps back.
 
 ### Clearance
 
-**Obstacle clearance** is the empty gap that must stay between panels and roof items. The usual default is **0.3** (in your chosen unit). Larger clearance means panels stay farther from tanks and other items.
+**Obstacle clearance** is the empty gap that must stay between panels and roof items (default often **0.3** in your unit).
 
 ### Edit size
 
 1. Click the item in the 3D view.  
 2. Size fields appear (width, depth or diameter, height).  
-3. Change the numbers. Each item type has a maximum size.
+3. Change the numbers (each type has a maximum size).
 
 ### Remove items
 
-- **Delete obstacle** — removes the one you selected  
+- **Delete obstacle** — removes the selected item  
 - **Clear obstacles** — removes all roof items  
 
 ### Panel conflicts
 
-If a panel sits too close to (or on top of) a roof item, it may show with a **red outline**. You can use **Remove overlapping panels** to clear those panels in one step.
+Panels too close to a roof item may show a **red outline**. Use **Remove overlapping panels** to clear those panels in one step.
 
 ---
 
-## Solar Panel Setup
-
-Use the collapsible **Solar Panel Setup** section to draft panel size, rated power (W), tilt, azimuth, setback, gaps, system losses, and module type.
-
-Important:
-
-- Changing fields does **not** update the 3D roof until you press **Apply Layout**.
-- **Reset Defaults** restores the draft form to defaults.
-- **Cancel Changes** restores the draft to the last applied settings.
-- Total system capacity (kW) is calculated as panel count × rated power — you do not enter total kW yourself.
-
-### Layout tools
-
-After applying a layout you can still:
-
-| Button | What it does |
-|--------|----------------|
-| **Auto-fill** | Re-runs layout with the last applied settings |
-| **+ Panel** | Adds one panel |
-| **Delete** | Removes the panel you selected in the 3D view |
-| **Clear** | Removes all panels |
-
-### Energy results (below the 3D view)
-
-Cards show panel count, installed capacity (kW), covered area, and estimated generation (kWh):
-
-- Average daily generation  
-- Selected month estimate  
-- Annual estimate  
-
-Open **Energy Estimate** for location (latitude / longitude), month, assumptions, warnings, and the “Estimated, not guaranteed” note. If live weather data is unavailable, the app shows an approximate fallback.
-
-### Moving panels
-
-Click a panel to select it (it gets a blue outline), then drag it on the roof. If you drop it in a bad place, it returns to the last good spot and a short message may appear.
-
----
-
-## Preview
+## Preview (sun and measurements)
 
 | Control | What it does |
 |---------|----------------|
 | **Measurements overlay** | Turns size labels on or off in the 3D view |
-| **Sun time** | Slide to change the time of day (light and shadows move) |
-| **Date** | Slide to pick a day through the year. The label shows the calendar date (for example **20 Jun · day 172**) so you know which day it is |
+| **Sun time** | Moves the sun along the yellow path (light and shadows). This is **visual only** — it does **not** change the kWh numbers in System Summary |
+| **Date** | Picks a day of the year (label like **12 Jun · day 164**). This also sets the **Selected month** used in the energy summary |
+
+---
+
+## System Summary & Energy Estimate (below the 3D view)
+
+Scroll **inside this bottom strip** to see everything. The rest of the page stays fixed.
+
+### System Summary cards
+
+| Card | Meaning |
+|------|---------|
+| **Panels** | How many panels are placed |
+| **Installed capacity** | Total kW (panels × rated power) |
+| **Panel-covered roof area** | Area covered by panels |
+| **Average daily generation** | Rough average kWh per day |
+| **Selected month generation** | Rough kWh for the month linked to **Date** / Selected month |
+| **Annual generation** | Rough kWh for a full year |
+
+A small label shows the data source, for example:
+
+- **PVGIS estimate** — European PVGIS data (often works on your own computer via the local app)  
+- **NASA POWER estimate** — NASA location weather/insolation (often used on the live website when PVGIS is blocked)  
+- **Approximate energy (fallback)** — simple formula only, when live data is unavailable  
+
+### Energy Estimate (expandable)
+
+Open **Energy Estimate** for:
+
+- **Latitude / Longitude** — site location for the estimate  
+- **Selected month** — which month’s kWh card to highlight  
+- **Peak sun hours / day** — only used in the simple **fallback** formula  
+- Monthly table (when PVGIS or NASA POWER data is available)  
+- Assumptions, warnings, and **“Estimated, not guaranteed.”**
+
+Estimates update when panel count, capacity, losses, location, or month change (after a short pause).
 
 ---
 
@@ -179,19 +241,22 @@ You can **Dismiss** the message, or use **Undo** if the app offers it after a ch
 2. Set **Footprint** to Rectangle (or L-shape if you prefer).  
 3. Set **Floors** to 1 or 2.  
 4. Keep **Roof type** as Flat for the first try.  
-5. Optionally add a **water tank** and drag it to a corner of the roof.  
-6. Press **Auto-fill** to place panels.  
-7. Drag the **Sun time** slider to see shadows.  
-8. Orbit the 3D view to look at the roof from different angles.
+5. In **Solar Panel Setup**, pick a **Module type**, check tilt / setback, then **Apply Layout** (or use **Auto-fill** in Layout tools).  
+6. Optionally add a **water tank** and drag it to a corner.  
+7. Look at **System Summary** under the 3D view for capacity and estimated kWh.  
+8. Move **Date** to change the selected month estimate; move **Sun time** to see shadows.  
+9. Orbit the 3D view to look at the roof from different angles.
 
 ---
 
 ## Quick tips
 
 - Start with a **flat** roof if you are new — it is simpler for panels and tanks.  
-- Use **Auto-fill** first, then delete or move individual panels.  
+- Use **Auto-fill** to cover the roof; use **Apply Layout** to update settings **without** changing how many panels you already have.  
+- Change **Module type** anytime to restyle existing panels (count stays the same).  
 - Keep **setback** and **obstacle clearance** in mind if panels will not fit.  
 - On a **gable** roof, use only chimney or AC as roof items.  
+- **Sun time** = shadows only; **Date** = which month’s energy card.  
 - If something looks wrong after a change, read the yellow message and use Undo when it is offered.
 
 ---
@@ -199,7 +264,8 @@ You can **Dismiss** the message, or use **Undo** if the app offers it after a ch
 ## What this app does *not* do
 
 - It does not book installers or sell panels.  
-- It does not connect to live maps or weather services by itself in this preview.  
-- It is a **visual planning helper**, not a final engineering or quote tool.
+- It is **not** a final engineering drawing, bill of materials, or sales quote.  
+- Energy numbers are **estimates** (PVGIS, NASA POWER, or a simple fallback). They are **not guaranteed** production.  
+- Optional photo textures for walls/grass may be missing; the house still shows with solid colours.
 
 If you need changes to how the tools work, ask your project contact or developer.

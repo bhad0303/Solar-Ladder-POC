@@ -121,7 +121,9 @@ export function EnergyResultsStrip() {
           </>
         )}
       </div>
-      {estimateError ? (
+      {/* Skip estimate skipped / soft warnings in the summary strip */}
+      {estimateError &&
+      !/zero capacity|energy estimate skipped/i.test(estimateError) ? (
         <p className="mt-1.5 text-[11px] text-red-600" role="alert">
           {estimateError}
         </p>

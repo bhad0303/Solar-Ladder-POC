@@ -5,7 +5,7 @@ import { SoftNumberInput } from './SoftNumberInput'
 import { useRoofStore } from './store/useRoofStore'
 
 export function EnergyEstimatePanel() {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
   const estimate = useRoofStore((s) => s.energyEstimate)
   const selectedMonth = useRoofStore((s) => s.selectedMonth)
   const setSelectedMonth = useRoofStore((s) => s.setSelectedMonth)
@@ -132,18 +132,6 @@ export function EnergyEstimatePanel() {
                   ))}
                 </ul>
               </div>
-              {estimate.warnings.length > 0 ? (
-                <div>
-                  <p className="text-[11px] font-medium text-amber-800">
-                    Warnings
-                  </p>
-                  <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[11px] text-amber-800">
-                    {estimate.warnings.map((w) => (
-                      <li key={w}>{w}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
               <p className="text-[11px] text-slate-500">
                 Data source:{' '}
                 <strong>

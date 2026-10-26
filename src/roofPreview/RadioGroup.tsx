@@ -12,6 +12,11 @@ type Props<T extends string> = {
   hideLabel?: boolean
 }
 
+/**
+ * Compact mode uses <button> chips — not sr-only <input type="radio">.
+ * Focusing clipped/absolutely-positioned radios was scrolling the sidebar
+ * off-screen when toggling m ↔ mm (looked like the sidebar “stripped”).
+ */
 export function RadioGroup<T extends string>({
   label,
   name,
@@ -22,7 +27,7 @@ export function RadioGroup<T extends string>({
   hideLabel = false,
 }: Props<T>) {
   return (
-    <fieldset className="min-w-0">
+    <fieldset className={compact ? 'relative min-w-0 shrink-0' : 'relative min-w-0'}>
       <legend
         className={
           hideLabel
@@ -35,39 +40,38 @@ export function RadioGroup<T extends string>({
       <div
         className={
           compact
-            ? 'inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5'
+            ? 'inline-flex max-w-full flex-wrap rounded-lg border border-slate-200 bg-slate-50 p-0.5'
             : 'flex flex-wrap gap-2'
         }
         role="radiogroup"
         aria-label={label}
       >
         {options.map((opt) => {
-          const id = `${name}-${opt.value}`
           const selected = value === opt.value
           if (compact) {
             return (
-              <label
+              <button
                 key={opt.value}
-                htmlFor={id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                data-name={name}
                 className={`cursor-pointer rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
                   selected
                     ? 'bg-white text-sky-800 shadow-sm'
                     : 'text-slate-600 hover:text-slate-800'
                 }`}
+                onMouseDown={(e) => {
+                  // Keep focus on the button itself (in-flow) — never scroll the page
+                  e.preventDefault()
+                }}
+                onClick={() => onChange(opt.value)}
               >
-                <input
-                  id={id}
-                  type="radio"
-                  className="sr-only"
-                  name={name}
-                  value={opt.value}
-                  checked={selected}
-                  onChange={() => onChange(opt.value)}
-                />
                 {opt.label}
-              </label>
+              </button>
             )
           }
+          const id = `${name}-${opt.value}`
           return (
             <label
               key={opt.value}
@@ -77,6 +81,10 @@ export function RadioGroup<T extends string>({
                   ? 'border-sky-400 bg-sky-50 text-sky-900'
                   : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
               }`}
+              onMouseDown={(e) => {
+                // Avoid browser scrolling a radio into view inside the sidebar
+                e.preventDefault()
+              }}
             >
               <input
                 id={id}
@@ -86,6 +94,7 @@ export function RadioGroup<T extends string>({
                 value={opt.value}
                 checked={selected}
                 onChange={() => onChange(opt.value)}
+                tabIndex={selected ? 0 : -1}
               />
               {opt.label}
             </label>

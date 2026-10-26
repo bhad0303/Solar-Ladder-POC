@@ -31,10 +31,10 @@ export type SolarSystemSummary = {
 }
 
 export type EnergyEstimate = {
-  source: 'pvgis' | 'fallback'
+  source: 'pvgis' | 'nasa-power' | 'fallback'
   calculatedAt: string
   annualEnergyKwh: number
-  /** Empty when fallback (no fabricated seasonality). Length 12 when PVGIS. */
+  /** Empty when simple fallback. Length 12 for PVGIS / NASA POWER. */
   monthlyEnergyKwh: number[]
   averageDailyEnergyKwh: number
   selectedMonthEnergyKwh: number

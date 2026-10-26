@@ -1,4 +1,5 @@
 import { FallbackEnergyEstimateProvider } from './FallbackEnergyEstimateProvider'
+import { NasaPowerEnergyEstimateProvider } from './NasaPowerEnergyEstimateProvider'
 import { PvgisEnergyEstimateProvider } from './PvgisEnergyEstimateProvider'
 import type {
   EnergyEstimate,
@@ -13,11 +14,14 @@ export type EstimateControllerCallbacks = {
 }
 
 /**
- * Debounced estimate runner: try PVGIS, fall back on CORS/network/API errors.
- * Stale responses never overwrite newer requests.
+ * Debounced estimate runner:
+ * 1) PVGIS (best when proxy works — local Vite / some hosts)
+ * 2) NASA POWER (CORS-open, location monthly insolation — works on Vercel)
+ * 3) Peak-sun-hours formula fallback
  */
 export class EstimateController {
   private pvgis = new PvgisEnergyEstimateProvider()
+  private nasa = new NasaPowerEnergyEstimateProvider()
   private fallback = new FallbackEnergyEstimateProvider()
   private seq = 0
   private timer: ReturnType<typeof setTimeout> | null = null
@@ -62,22 +66,47 @@ export class EstimateController {
       return
     }
 
+    let pvgisError: string | null = null
     try {
       const estimate = await this.pvgis.estimate(input, signal)
       if (mySeq !== this.seq) return
       this.cbs.onResult(estimate)
       this.cbs.onStatus('ready')
+      return
     } catch (err) {
       if (signal.aborted && mySeq !== this.seq) return
-      const msg = err instanceof Error ? err.message : String(err)
+      pvgisError = err instanceof Error ? err.message : String(err)
+    }
+
+    try {
+      const nasa = await this.nasa.estimate(input, signal)
+      if (mySeq !== this.seq) return
+      this.cbs.onResult({
+        ...nasa,
+        warnings: [
+          ...nasa.warnings,
+          ...(pvgisError
+            ? [`PVGIS unavailable (${pvgisError}). Using NASA POWER.`]
+            : []),
+        ],
+      })
+      this.cbs.onStatus('ready')
+      return
+    } catch (nasaErr) {
+      if (signal.aborted && mySeq !== this.seq) return
+      const nasaMsg =
+        nasaErr instanceof Error ? nasaErr.message : String(nasaErr)
       try {
         const fb = await this.fallback.estimate(input)
         if (mySeq !== this.seq) return
-        const warnings = [
-          ...fb.warnings,
-          `PVGIS unavailable (${msg}). Showing approximate fallback.`,
-        ]
-        this.cbs.onResult({ ...fb, warnings })
+        this.cbs.onResult({
+          ...fb,
+          warnings: [
+            ...fb.warnings,
+            ...(pvgisError ? [`PVGIS unavailable (${pvgisError}).`] : []),
+            `NASA POWER unavailable (${nasaMsg}). Showing peak-sun-hours fallback.`,
+          ],
+        })
         this.cbs.onStatus('ready')
       } catch (fbErr) {
         if (mySeq !== this.seq) return

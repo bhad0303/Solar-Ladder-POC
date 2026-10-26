@@ -18,7 +18,7 @@ export function EnergyEstimatePanel() {
 
   const monthly = estimate?.monthlyEnergyKwh ?? []
   const showChart =
-    estimate?.source === 'pvgis' &&
+    (estimate?.source === 'pvgis' || estimate?.source === 'nasa-power') &&
     monthly.length === 12 &&
     monthly.some((v) => v > 0)
 
@@ -147,7 +147,11 @@ export function EnergyEstimatePanel() {
               <p className="text-[11px] text-slate-500">
                 Data source:{' '}
                 <strong>
-                  {estimate.source === 'pvgis' ? 'PVGIS 5.3' : 'Fallback'}
+                  {estimate.source === 'pvgis'
+                    ? 'PVGIS 5.3'
+                    : estimate.source === 'nasa-power'
+                      ? 'NASA POWER'
+                      : 'Fallback'}
                 </strong>
                 {estimate.capacityFactorPercent !== undefined
                   ? ` · Capacity factor ~${formatPercent(estimate.capacityFactorPercent)}`

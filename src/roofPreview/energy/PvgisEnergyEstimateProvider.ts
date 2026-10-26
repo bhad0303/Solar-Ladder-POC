@@ -231,20 +231,39 @@ export class PvgisEnergyEstimateProvider implements EnergyEstimateProvider {
       const text = await res.text()
       if (
         /requested URL was rejected/i.test(text) ||
-        /support ID/i.test(text)
+        /support ID/i.test(text) ||
+        /jrc-waf/i.test(text)
       ) {
         throw new Error(
-          'PVGIS firewall rejected the request — check /pvgis-api proxy (Vite or Vercel)',
+          'PVGIS WAF blocked this host (common on Vercel/cloud IPs)',
         )
-      }
-      if (!res.ok) {
-        throw new Error(`PVGIS HTTP ${res.status}`)
       }
       let json: unknown
       try {
         json = JSON.parse(text) as unknown
       } catch {
+        if (!res.ok) throw new Error(`PVGIS HTTP ${res.status}`)
         throw new Error('PVGIS returned non-JSON body')
+      }
+      if (
+        json &&
+        typeof json === 'object' &&
+        'waf' in json &&
+        (json as { waf?: boolean }).waf
+      ) {
+        throw new Error(
+          'PVGIS WAF blocked this host (common on Vercel/cloud IPs)',
+        )
+      }
+      if (!res.ok) {
+        const msg =
+          json &&
+          typeof json === 'object' &&
+          'message' in json &&
+          typeof (json as { message: unknown }).message === 'string'
+            ? (json as { message: string }).message
+            : `PVGIS HTTP ${res.status}`
+        throw new Error(msg)
       }
       const estimate = parsePvgisResponse(json, input)
       this.cache.set(key, { at: Date.now(), estimate })

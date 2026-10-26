@@ -75,6 +75,10 @@ export function EnergyResultsStrip() {
           </span>
         ) : estimate?.source === 'pvgis' ? (
           <span className="text-[10px] text-emerald-700">PVGIS estimate</span>
+        ) : estimate?.source === 'nasa-power' ? (
+          <span className="text-[10px] text-emerald-700">
+            NASA POWER estimate
+          </span>
         ) : null}
       </div>
       <div className="flex gap-2 overflow-x-auto pb-1">
